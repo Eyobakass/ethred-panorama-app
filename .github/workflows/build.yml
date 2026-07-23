@@ -33,6 +33,12 @@ jobs:
       - name: Build Debug APK
         run: ./gradlew assembleDebug --stacktrace --info 2>&1 | tee build.log; exit ${PIPESTATUS[0]}
 
+      - name: Print compilation errors
+        if: failure()
+        run: |
+          echo "=== KOTLIN / JAVA ERRORS ==="
+          grep -E "^e:|error:|\.kt:[0-9]+|\.java:[0-9]+|Unresolved reference|None of the following|overload resolution" build.log | head -100 || echo "No error lines found"
+
       - name: Upload build log on failure
         if: failure()
         uses: actions/upload-artifact@v4
