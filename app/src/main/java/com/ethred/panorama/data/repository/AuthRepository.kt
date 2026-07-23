@@ -31,6 +31,10 @@ class AuthRepository @Inject constructor(
         }
     }
 
+    fun saveDemoSession() {
+        tokenStorage.saveToken("mock_demo_token_123")
+    }
+
     fun logout() {
         tokenStorage.clearToken()
     }

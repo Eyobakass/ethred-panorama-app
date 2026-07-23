@@ -119,10 +119,8 @@ fun LoginScreen(
             onClick = {
                 if (email.isBlank() || password.isBlank()) {
                     // Quick demo login fallback if blank
-                    coroutineScope.launch {
-                        authRepository.saveSession("mock_test_token_123", "AGENT")
-                        onLoginSuccess()
-                    }
+                    authRepository.saveDemoSession()
+                    onLoginSuccess()
                     return@Button
                 }
                 isLoading = true
@@ -133,7 +131,7 @@ fun LoginScreen(
                         onSuccess = { onLoginSuccess() },
                         onFailure = { 
                             // Offline/Demo fallback on SSL/Network error
-                            authRepository.saveSession("mock_test_token_123", "AGENT")
+                            authRepository.saveDemoSession()
                             onLoginSuccess()
                         }
                     )
@@ -160,10 +158,8 @@ fun LoginScreen(
 
         OutlinedButton(
             onClick = {
-                coroutineScope.launch {
-                    authRepository.saveSession("mock_test_token_123", "AGENT")
-                    onLoginSuccess()
-                }
+                authRepository.saveDemoSession()
+                onLoginSuccess()
             },
             modifier = Modifier
                 .fillMaxWidth()
