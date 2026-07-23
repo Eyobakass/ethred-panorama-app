@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">ኢትሬድ 360° ካፕቸር</string>
+    <string name="title_login">የወኪል መግቢያ</string>
+    <string name="title_dashboard">የቤት ባለቤት ዳሽቦርድ</string>
+    <string name="title_room_setup">የ 360° ክፍል ዝግጅት</string>
+    <string name="title_capture">የ 360° ፎቶ ማንሻ</string>
+    <string name="title_stitching">ፎቶዎችን በማጣመር ላይ...</string>
+    <string name="title_preview">የ 360° ፎቶ ቅድመ-እይታ</string>
+    <string name="title_tour_editor">የቨርቹዋል ጉብኝት አዘጋጅ</string>
+    <string name="title_upload">ወደ ኢትሬድ ሲስተም በመጫን ላይ</string>
+    <string name="title_success">ጉብኝቱ በስኬት ተለጥፏል</string>
+
+    <string name="btn_login">ግደፍ / ግባ</string>
+    <string name="btn_start_capture">ፎቶ ማንሳት ጀምር</string>
+    <string name="btn_finish_capture">ፎቶ ማንሳት ጨርስ</string>
+    <string name="btn_retake">እንደገና አንሳ</string>
+    <string name="btn_add_room">ሌላ ክፍል ጨምር</string>
+    <string name="btn_link_rooms">ክፍሎችን አገናኝ</string>
+    <string name="btn_publish">ጉብኝቱን ለጥፍ</string>
+    <string name="btn_view_website">በድረ-ገፅ ተመልከት</string>
+    <string name="btn_retry">ድጋሚ ሞክር</string>
+
+    <string name="msg_gyro_missing">ይህ ስልክ ጋይሮስኮፕ ሴንሰር የለውም። እባክዎን ሌላ የሚደግፍ ስልክ ይጠቀሙ።</string>
+    <string name="msg_low_quality_warning">⚠️ የፎቶ ጥራት ዝቅተኛ ነው — እባክዎን በፍጥነት ሳይዞሩ በዝግታ እንደገና ያንሱ።</string>
+    <string name="msg_capture_instruction">በክፍሉ መሃል ቁሙ። ስልኩን ቀጥ አድርገው በመያዝ በዝግታ ይዞሩ።</string>
+    <string name="label_frames_captured">የተነሱ ፎቶዎች: %1$d / %2$d</string>
+    <string name="label_quality_score">የጥራት ደረጃ: %1$d / 5</string>
+    <string name="label_nadir_cap">የወለል (ታችኛ) ሽፋን</string>
+
+    <string name="nadir_option_inpaint">የወለልን ከለር በራሱ ማስተካከል</string>
+    <string name="nadir_option_blur">ለስላሳ ጥቁር ጥላ ማድረግ</string>
+    <string name="nadir_option_logo">የድርጅቱን ሎጎ ማድረግ</string>
+</resources>

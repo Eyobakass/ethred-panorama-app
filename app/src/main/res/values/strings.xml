@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Ethred 360° Capture</string>
+    <string name="title_login">Agent Login</string>
+    <string name="title_dashboard">Property Dashboard</string>
+    <string name="title_room_setup">360° Room Capture Setup</string>
+    <string name="title_capture">Capture 360° Panorama</string>
+    <string name="title_stitching">Stitching Panorama...</string>
+    <string name="title_preview">360° Panorama Preview</string>
+    <string name="title_tour_editor">Virtual Tour Builder</string>
+    <string name="title_upload">Uploading Tour to Ethred</string>
+    <string name="title_success">Tour Published Successfully</string>
+
+    <string name="btn_login">Log In</string>
+    <string name="btn_start_capture">Start Capture</string>
+    <string name="btn_finish_capture">Finish Capture</string>
+    <string name="btn_retake">Retake Panorama</string>
+    <string name="btn_add_room">Add Another Room</string>
+    <string name="btn_link_rooms">Link Rooms with Hotspots</string>
+    <string name="btn_publish">Publish Virtual Tour</string>
+    <string name="btn_view_website">View on Website</string>
+    <string name="btn_retry">Retry Upload</string>
+
+    <string name="msg_gyro_missing">This device does not have a hardware gyroscope sensor, which is required for 360° panorama capture. Please use a supported device.</string>
+    <string name="msg_low_quality_warning">⚠️ Low Quality Panorama — Feature matching was poor due to rapid rotation or low texture. Seams may be visible. We recommend retaking this room.</string>
+    <string name="msg_capture_instruction">Stand in the center of the room. Hold phone upright and rotate slowly to align with target dots.</string>
+    <string name="label_frames_captured">Frames Captured: %1$d / %2$d</string>
+    <string name="label_quality_score">Stitching Quality: %1$d / 5 Stars</string>
+    <string name="label_nadir_cap">Floor (Nadir) Coverage</string>
+
+    <string name="nadir_option_inpaint">Auto Inpaint Floor Texture</string>
+    <string name="nadir_option_blur">Smooth Vignette Feather</string>
+    <string name="nadir_option_logo">Agency Brand Logo Cap</string>
+</resources>

@@ -1,0 +1,1576 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>SRS – Android 360° Panorama Capture & Virtual Tour App</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Fira+Code:wght@400;500&display=swap');
+
+  :root {
+    --primary: #1a56db;
+    --primary-dark: #1341b3;
+    --accent: #0ea5e9;
+    --dark: #0f172a;
+    --text: #1e293b;
+    --muted: #64748b;
+    --border: #e2e8f0;
+    --bg-code: #f8fafc;
+    --bg-section: #f1f5f9;
+    --success: #16a34a;
+    --warning: #d97706;
+    --danger: #dc2626;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Inter', sans-serif;
+    font-size: 10.5pt;
+    line-height: 1.75;
+    color: var(--text);
+    background: #fff;
+    padding: 0;
+  }
+
+  /* ── Cover Page ── */
+  .cover {
+    background: linear-gradient(145deg, #0f172a 0%, #1e3a8a 50%, #1a56db 100%);
+    color: #fff;
+    min-height: 297mm;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    padding: 60px 80px;
+    page-break-after: always;
+    position: relative;
+    overflow: hidden;
+  }
+  .cover::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at 30% 70%, rgba(14,165,233,0.3) 0%, transparent 60%),
+                radial-gradient(circle at 80% 20%, rgba(99,102,241,0.3) 0%, transparent 55%);
+  }
+  .cover-logo {
+    width: 90px; height: 90px;
+    border-radius: 22px;
+    background: rgba(255,255,255,0.12);
+    border: 2px solid rgba(255,255,255,0.25);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 42px; margin-bottom: 36px;
+    backdrop-filter: blur(10px);
+    position: relative; z-index: 1;
+  }
+  .cover-badge {
+    font-size: 9pt; font-weight: 600; letter-spacing: 3px;
+    text-transform: uppercase; color: rgba(255,255,255,0.6);
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.15);
+    padding: 6px 20px; border-radius: 999px;
+    margin-bottom: 24px; position: relative; z-index: 1;
+  }
+  .cover h1 {
+    font-size: 30pt; font-weight: 700; line-height: 1.2;
+    margin-bottom: 16px; position: relative; z-index: 1;
+    text-shadow: 0 2px 20px rgba(0,0,0,0.4);
+  }
+  .cover h1 span { color: #60a5fa; }
+  .cover p {
+    font-size: 13pt; font-weight: 300; color: rgba(255,255,255,0.75);
+    max-width: 640px; margin-bottom: 48px; position: relative; z-index: 1;
+  }
+  .cover-meta {
+    display: grid; grid-template-columns: 1fr 1fr 1fr;
+    gap: 20px; width: 100%; max-width: 700px;
+    position: relative; z-index: 1;
+  }
+  .cover-meta-item {
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 12px; padding: 16px;
+    backdrop-filter: blur(10px);
+  }
+  .cover-meta-item .label { font-size: 8pt; color: rgba(255,255,255,0.5); text-transform: uppercase; letter-spacing: 1px; }
+  .cover-meta-item .value { font-size: 10pt; font-weight: 600; color: #fff; margin-top: 4px; }
+
+  /* ── TOC ── */
+  .toc-page {
+    page-break-after: always;
+    padding: 60px 70px;
+  }
+  .toc-page h2 { font-size: 18pt; color: var(--dark); border-bottom: 3px solid var(--primary); padding-bottom: 12px; margin-bottom: 30px; }
+  .toc-section { margin-bottom: 6px; }
+  .toc-section a { color: var(--text); text-decoration: none; display: flex; justify-content: space-between; align-items: center; padding: 5px 8px; border-radius: 6px; }
+  .toc-section a:hover { background: var(--bg-section); }
+  .toc-section .toc-title { font-weight: 500; }
+  .toc-section .toc-dots { flex: 1; border-bottom: 1px dotted var(--border); margin: 0 8px; }
+  .toc-section .toc-pg { color: var(--muted); font-size: 9pt; }
+  .toc-subsection a { padding-left: 24px; color: var(--muted); font-size: 9.5pt; }
+
+  /* ── Main Content ── */
+  .content {
+    padding: 55px 70px;
+  }
+
+  h1.section-title {
+    font-size: 22pt; font-weight: 700; color: var(--dark);
+    border-bottom: 3px solid var(--primary);
+    padding-bottom: 10px; margin-bottom: 28px; margin-top: 50px;
+    display: flex; align-items: center; gap: 14px;
+  }
+  h1.section-title:first-child { margin-top: 0; }
+  h1.section-title .num {
+    background: var(--primary); color: #fff;
+    font-size: 12pt; font-weight: 700;
+    width: 36px; height: 36px; border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+
+  h2.sub-title {
+    font-size: 14pt; font-weight: 600; color: var(--primary-dark);
+    margin: 32px 0 14px; padding-left: 14px;
+    border-left: 4px solid var(--accent);
+  }
+
+  h3.sub-sub-title {
+    font-size: 11.5pt; font-weight: 600; color: var(--dark);
+    margin: 22px 0 10px;
+  }
+
+  p { margin-bottom: 12px; }
+
+  ul, ol { margin: 10px 0 16px 24px; }
+  li { margin-bottom: 6px; }
+  li::marker { color: var(--primary); }
+
+  strong { font-weight: 600; color: var(--dark); }
+
+  /* ── Code Blocks ── */
+  pre {
+    background: var(--dark);
+    color: #e2e8f0;
+    font-family: 'Fira Code', monospace;
+    font-size: 8.5pt;
+    line-height: 1.6;
+    padding: 20px 24px;
+    border-radius: 10px;
+    overflow-x: auto;
+    margin: 14px 0 22px;
+    border-left: 4px solid var(--accent);
+  }
+  code {
+    font-family: 'Fira Code', monospace;
+    font-size: 8.5pt;
+    background: var(--bg-code);
+    color: var(--primary-dark);
+    padding: 2px 7px; border-radius: 4px;
+    border: 1px solid var(--border);
+  }
+  pre code {
+    background: none; border: none; color: inherit; padding: 0;
+    font-size: inherit;
+  }
+
+  /* Syntax highlighting helpers */
+  .kw { color: #93c5fd; }
+  .str { color: #86efac; }
+  .num { color: #fde68a; }
+  .cm { color: #6b7280; font-style: italic; }
+  .fn { color: #c4b5fd; }
+  .type { color: #f9a8d4; }
+  .prop { color: #67e8f9; }
+
+  /* ── Tables ── */
+  table {
+    width: 100%; border-collapse: collapse;
+    margin: 16px 0 24px; font-size: 9.5pt;
+  }
+  thead tr { background: var(--primary); color: #fff; }
+  thead th { padding: 10px 14px; text-align: left; font-weight: 600; }
+  tbody tr:nth-child(even) { background: var(--bg-section); }
+  tbody tr:nth-child(odd) { background: #fff; }
+  td { padding: 9px 14px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  td:first-child { font-weight: 500; }
+
+  /* ── Callout Boxes ── */
+  .callout {
+    border-radius: 10px; padding: 16px 20px; margin: 16px 0;
+    border-left: 5px solid; font-size: 9.5pt;
+  }
+  .callout.info { background: #eff6ff; border-color: var(--accent); color: #1e40af; }
+  .callout.success { background: #f0fdf4; border-color: var(--success); color: #166534; }
+  .callout.warning { background: #fffbeb; border-color: var(--warning); color: #92400e; }
+  .callout.danger { background: #fef2f2; border-color: var(--danger); color: #991b1b; }
+  .callout strong { color: inherit; }
+
+  /* ── Status Badges ── */
+  .badge {
+    display: inline-block; font-size: 8pt; font-weight: 600;
+    padding: 3px 10px; border-radius: 999px; letter-spacing: 0.5px;
+  }
+  .badge.ready { background: #dcfce7; color: #166534; }
+  .badge.pending { background: #fef9c3; color: #854d0e; }
+  .badge.required { background: #ede9fe; color: #6d28d9; }
+  .badge.optional { background: #f1f5f9; color: #475569; }
+
+  /* ── Architecture Diagram ── */
+  .arch-diagram {
+    background: var(--dark); border-radius: 12px;
+    padding: 24px; margin: 16px 0 24px;
+    font-family: 'Fira Code', monospace; font-size: 8pt;
+    color: #94a3b8; line-height: 1.6;
+    border: 1px solid #1e293b;
+  }
+  .arch-layer {
+    border: 1px solid #334155; border-radius: 8px;
+    padding: 14px 18px; margin: 10px 0;
+  }
+  .arch-layer .layer-title {
+    font-size: 8pt; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 2px; margin-bottom: 10px;
+  }
+  .arch-layer.android { border-color: #3b82f6; }
+  .arch-layer.android .layer-title { color: #60a5fa; }
+  .arch-layer.backend { border-color: #10b981; }
+  .arch-layer.backend .layer-title { color: #34d399; }
+  .arch-layer.frontend { border-color: #f59e0b; }
+  .arch-layer.frontend .layer-title { color: #fbbf24; }
+  .arch-row { display: flex; gap: 10px; flex-wrap: wrap; margin: 8px 0; }
+  .arch-box {
+    background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 6px; padding: 8px 12px; font-size: 8pt; color: #cbd5e1;
+    flex: 1; min-width: 140px; text-align: center;
+  }
+  .arch-arrow { color: #60a5fa; text-align: center; font-size: 10pt; padding: 4px 0; }
+
+  /* ── Req Cards ── */
+  .req-card {
+    border: 1px solid var(--border); border-radius: 10px;
+    padding: 18px 22px; margin: 12px 0;
+    border-left: 5px solid var(--primary);
+    background: #fcfcfd;
+    page-break-inside: avoid;
+  }
+  .req-card .req-id {
+    font-family: 'Fira Code', monospace;
+    font-size: 8.5pt; font-weight: 600;
+    color: var(--primary); background: #eff6ff;
+    display: inline-block; padding: 3px 10px; border-radius: 6px;
+    margin-bottom: 8px;
+  }
+  .req-card .req-title { font-size: 10.5pt; font-weight: 600; color: var(--dark); margin-bottom: 8px; }
+  .req-card .req-desc { font-size: 9.5pt; color: #374151; }
+  .req-card .req-details { margin-top: 10px; }
+  .req-card .req-details li { font-size: 9pt; color: var(--muted); }
+
+  /* ── Use Case Cards ── */
+  .uc-card {
+    background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+    border: 1px solid #bae6fd; border-radius: 12px;
+    padding: 22px 26px; margin: 16px 0;
+    page-break-inside: avoid;
+  }
+  .uc-card h4 { color: #0369a1; font-size: 11pt; margin-bottom: 14px; }
+  .uc-step {
+    display: flex; gap: 12px; margin-bottom: 8px; align-items: flex-start;
+  }
+  .uc-step .step-num {
+    background: var(--primary); color: #fff;
+    width: 22px; height: 22px; border-radius: 50%;
+    font-size: 8pt; font-weight: 700; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .uc-step .step-text { font-size: 9.5pt; color: var(--text); }
+  .uc-step .step-text strong { color: #0369a1; }
+
+  /* ── Page Breaks ── */
+  .page-break { page-break-before: always; }
+
+  /* ── Footer ── */
+  @media print {
+    @page { margin: 15mm 15mm; size: A4; }
+    body { font-size: 10pt; }
+    .cover { min-height: auto; }
+    pre { break-inside: avoid; }
+    .req-card { break-inside: avoid; }
+    .uc-card { break-inside: avoid; }
+    table { break-inside: avoid; }
+  }
+
+  .section-divider {
+    height: 2px; background: linear-gradient(90deg, var(--primary), transparent);
+    margin: 40px 0;
+  }
+
+  .highlight-box {
+    background: linear-gradient(135deg, #1e3a8a, #1d4ed8);
+    color: #fff; border-radius: 12px; padding: 22px 26px; margin: 16px 0;
+  }
+  .highlight-box h4 { color: #93c5fd; margin-bottom: 10px; font-size: 11pt; }
+  .highlight-box p, .highlight-box li { color: rgba(255,255,255,0.85); font-size: 9.5pt; }
+
+  .checklist li { list-style: none; padding-left: 0; margin-left: 0; }
+  .checklist li::before { content: '✅ '; }
+  .checklist.pending li::before { content: '⏳ '; }
+
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 12px 0; }
+  .two-col-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin: 12px 0; }
+  .stat-card {
+    border: 1px solid var(--border); border-radius: 10px; padding: 16px;
+    text-align: center;
+  }
+  .stat-card .stat-value { font-size: 22pt; font-weight: 700; color: var(--primary); }
+  .stat-card .stat-label { font-size: 8.5pt; color: var(--muted); margin-top: 4px; }
+</style>
+</head>
+<body>
+
+<!-- ╔══════════════════════════════════════════╗ -->
+<!-- ║              COVER PAGE                  ║ -->
+<!-- ╚══════════════════════════════════════════╝ -->
+<div class="cover">
+  <div class="cover-logo">📡</div>
+  <div class="cover-badge">Software Requirements Specification</div>
+  <h1>Android <span>360° Panorama</span> Capture &amp; Virtual Tour App</h1>
+  <p>A native Android application enabling real estate professionals to capture, stitch, and publish immersive 360° virtual property tours — integrated seamlessly with the Ethred Backend API.</p>
+  <div class="cover-meta">
+    <div class="cover-meta-item">
+      <div class="label">Document Version</div>
+      <div class="value">v2.0 (Final)</div>
+    </div>
+    <div class="cover-meta-item">
+      <div class="label">Date</div>
+      <div class="value">July 2026</div>
+    </div>
+    <div class="cover-meta-item">
+      <div class="label">Platform</div>
+      <div class="value">Android 7.0+</div>
+    </div>
+    <div class="cover-meta-item">
+      <div class="label">Backend</div>
+      <div class="value">Ethred API v1</div>
+    </div>
+    <div class="cover-meta-item">
+      <div class="label">Status</div>
+      <div class="value">Approved</div>
+    </div>
+    <div class="cover-meta-item">
+      <div class="label">Classification</div>
+      <div class="value">Internal</div>
+    </div>
+  </div>
+</div>
+
+<!-- ╔══════════════════════════════════════════╗ -->
+<!-- ║           TABLE OF CONTENTS             ║ -->
+<!-- ╚══════════════════════════════════════════╝ -->
+<div class="toc-page">
+  <h2>Table of Contents</h2>
+
+  <div class="toc-section"><a href="#s1"><span class="toc-title">1. Introduction &amp; Executive Summary</span><span class="toc-dots"></span><span class="toc-pg">3</span></a></div>
+  <div class="toc-section toc-subsection"><a href="#s1-1"><span class="toc-title">1.1 Purpose of This Document</span><span class="toc-dots"></span><span class="toc-pg">3</span></a></div>
+  <div class="toc-section toc-subsection"><a href="#s1-2"><span class="toc-title">1.2 Project Overview</span><span class="toc-dots"></span><span class="toc-pg">3</span></a></div>
+  <div class="toc-section toc-subsection"><a href="#s1-3"><span class="toc-title">1.3 Backend Integration Boundary Analysis</span><span class="toc-dots"></span><span class="toc-pg">4</span></a></div>
+  <div class="toc-section toc-subsection"><a href="#s1-4"><span class="toc-title">1.4 Definitions, Acronyms &amp; Glossary</span><span class="toc-dots"></span><span class="toc-pg">4</span></a></div>
+
+  <div class="toc-section"><a href="#s2"><span class="toc-title">2. System Architecture</span><span class="toc-dots"></span><span class="toc-pg">5</span></a></div>
+  <div class="toc-section toc-subsection"><a href="#s2-1"><span class="toc-title">2.1 High-Level Architecture Diagram</span><span class="toc-dots"></span><span class="toc-pg">5</span></a></div>
+  <div class="toc-section toc-subsection"><a href="#s2-2"><span class="toc-title">2.2 Android App Module Architecture</span><span class="toc-dots"></span><span class="toc-pg">5</span></a></div>
+  <div class="toc-section toc-subsection"><a href="#s2-3"><span class="toc-title">2.3 On-Device Stitching Pipeline</span><span class="toc-dots"></span><span class="toc-pg">6</span></a></div>
+  <div class="toc-section toc-subsection"><a href="#s2-4"><span class="toc-title">2.4 Technology Stack</span><span class="toc-dots"></span><span class="toc-pg">6</span></a></div>
+
+  <div class="toc-section"><a href="#s3"><span class="toc-title">3. Data Schema &amp; Backend Integration</span><span class="toc-dots"></span><span class="toc-pg">7</span></a></div>
+  <div class="toc-section toc-subsection"><a href="#s3-1"><span class="toc-title">3.1 Existing Prisma Schema (Preserved)</span><span class="toc-dots"></span><span class="toc-pg">7</span></a></div>
+  <div class="toc-section toc-subsection"><a href="#s3-2"><span class="toc-title">3.2 Local Room Database Schema</span><span class="toc-dots"></span><span class="toc-pg">7</span></a></div>
+  <div class="toc-section toc-subsection"><a href="#s3-3"><span class="toc-title">3.3 Virtual Tour Manifest JSON Schema</span><span class="toc-dots"></span><span class="toc-pg">7</span></a></div>
+  <div class="toc-section toc-subsection"><a href="#s3-4"><span class="toc-title">3.4 API Integration Contracts</span><span class="toc-dots"></span><span class="toc-pg">8</span></a></div>
+
+  <div class="toc-section"><a href="#s4"><span class="toc-title">4. Functional Requirements</span><span class="toc-dots"></span><span class="toc-pg">9</span></a></div>
+  <div class="toc-section toc-subsection"><a href="#s4-1"><span class="toc-title">4.1 Authentication &amp; Authorization (FR-AUTH)</span><span class="toc-dots"></span><span class="toc-pg">9</span></a></div>
+  <div class="toc-section toc-subsection"><a href="#s4-2"><span class="toc-title">4.2 Gyroscope-Guided Frame Capture (FR-CAP)</span><span class="toc-dots"></span><span class="toc-pg">9</span></a></div>
+  <div class="toc-section toc-subsection"><a href="#s4-3"><span class="toc-title">4.3 On-Device Stitching Engine (FR-STITCH)</span><span class="toc-dots"></span><span class="toc-pg">11</span></a></div>
+  <div class="toc-section toc-subsection"><a href="#s4-4"><span class="toc-title">4.4 Gap Inpainting &amp; Post-Processing (FR-FILL)</span><span class="toc-dots"></span><span class="toc-pg">12</span></a></div>
+  <div class="toc-section toc-subsection"><a href="#s4-5"><span class="toc-title">4.5 Multi-Room Tour Builder (FR-TOUR)</span><span class="toc-dots"></span><span class="toc-pg">12</span></a></div>
+  <div class="toc-section toc-subsection"><a href="#s4-6"><span class="toc-title">4.6 Backend Upload &amp; Sync (FR-SYNC)</span><span class="toc-dots"></span><span class="toc-pg">13</span></a></div>
+  <div class="toc-section toc-subsection"><a href="#s4-7"><span class="toc-title">4.7 Local Preview Viewer (FR-VIEW)</span><span class="toc-dots"></span><span class="toc-pg">14</span></a></div>
+
+  <div class="toc-section"><a href="#s5"><span class="toc-title">5. Non-Functional Requirements</span><span class="toc-dots"></span><span class="toc-pg">14</span></a></div>
+  <div class="toc-section"><a href="#s6"><span class="toc-title">6. Use Case Scenarios</span><span class="toc-dots"></span><span class="toc-pg">16</span></a></div>
+  <div class="toc-section"><a href="#s7"><span class="toc-title">7. Screen &amp; UI/UX Specification</span><span class="toc-dots"></span><span class="toc-pg">18</span></a></div>
+  <div class="toc-section"><a href="#s8"><span class="toc-title">8. Error Handling &amp; Edge Cases</span><span class="toc-dots"></span><span class="toc-pg">19</span></a></div>
+  <div class="toc-section"><a href="#s9"><span class="toc-title">9. Security Requirements</span><span class="toc-dots"></span><span class="toc-pg">20</span></a></div>
+  <div class="toc-section"><a href="#s10"><span class="toc-title">10. Testing Strategy</span><span class="toc-dots"></span><span class="toc-pg">20</span></a></div>
+  <div class="toc-section"><a href="#s11"><span class="toc-title">11. Developer Implementation Prompt</span><span class="toc-dots"></span><span class="toc-pg">21</span></a></div>
+</div>
+
+<!-- ╔══════════════════════════════════════════╗ -->
+<!-- ║        SECTION 1: INTRODUCTION          ║ -->
+<!-- ╚══════════════════════════════════════════╝ -->
+<div class="content" id="s1">
+  <h1 class="section-title"><span class="num">1</span> Introduction &amp; Executive Summary</h1>
+
+  <h2 class="sub-title" id="s1-1">1.1 Purpose of This Document</h2>
+  <p>This Software Requirements Specification (SRS) defines the complete, authoritative, and developer-ready requirements for the <strong>Android 360° Panorama Capture &amp; Virtual Tour Application</strong>. It is intended to be used directly by Android developers, QA engineers, and frontend integration engineers building the Pannellum.js-based viewer without any ambiguity.</p>
+  <p>This document covers all functional requirements, non-functional constraints, data schema integration contracts, use case scenarios, security requirements, testing strategy, and a ready-to-use prompt for AI-assisted development. Every requirement is explicitly aligned with the <strong>existing Ethred Backend API</strong> to guarantee zero breaking changes.</p>
+
+  <h2 class="sub-title" id="s1-2">1.2 Project Overview</h2>
+  <p>The <strong>Ethred platform</strong> is a real estate marketplace operating in Ethiopia. Property agents and sellers currently upload flat 2D images and videos of properties. The objective of this project is to allow agents to capture <strong>professional-quality 360° equirectangular panoramas</strong> of property rooms using nothing more than an ordinary Android smartphone with a hardware gyroscope, and to publish those panoramas as interactive virtual tours viewable on the Ethred web platform — exactly like those seen on Redfin or Matterport.</p>
+
+  <div class="two-col-3" style="margin: 20px 0;">
+    <div class="stat-card"><div class="stat-value">0</div><div class="stat-label">Backend DB Schema Changes Required</div></div>
+    <div class="stat-card"><div class="stat-value">100%</div><div class="stat-label">On-Device Processing (No Server GPU Cost)</div></div>
+    <div class="stat-card"><div class="stat-value">∞</div><div class="stat-label">Rooms per Property Tour (No Hard Limit)</div></div>
+  </div>
+
+  <h2 class="sub-title" id="s1-3">1.3 Backend Integration Boundary Analysis &amp; Conflict Resolution</h2>
+  <p>The original SRS concept conflicted with the existing backend in the following ways. This section documents what changed and why:</p>
+
+  <table>
+    <thead>
+      <tr><th>Issue Identified</th><th>Original Conflict</th><th>Resolution in This SRS</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Server-Side Stitching</td>
+        <td>Required a dedicated GPU compute server and new database tables for processing jobs</td>
+        <td>Stitching runs entirely on-device using native OpenCV C++ via Android NDK. Zero server cost.</td>
+      </tr>
+      <tr>
+        <td>Custom Media Schema</td>
+        <td>Assumed a new <code>panorama_session</code> table and media type</td>
+        <td>Uses the existing <code>PropertyMedia</code> table with <code>media_category: IMAGE</code> for panoramas and <code>DOCUMENT</code> for manifest files.</td>
+      </tr>
+      <tr>
+        <td>New API Endpoints</td>
+        <td>Proposed new REST endpoints for 3D session management</td>
+        <td>Uses only existing endpoints: <code>POST /api/v1/auth/login</code>, <code>POST /api/v1/properties</code>, and the media upload endpoint.</td>
+      </tr>
+      <tr>
+        <td>Proprietary 3D File Formats</td>
+        <td>Required .matterport or .ptx format support</td>
+        <td>Output is standard <strong>2:1 Equirectangular JPEG</strong> with GPano EXIF XMP metadata — universally supported by Pannellum.js without any backend parsing.</td>
+      </tr>
+      <tr>
+        <td>Tour Linking</td>
+        <td>Multi-room linking required relational DB tables for hotspot positions</td>
+        <td>A lightweight <code>tour_manifest.json</code> is generated by the app and uploaded as a <code>DOCUMENT</code> media asset. Frontend Pannellum.js reads this manifest to build the tour.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2 class="sub-title" id="s1-4">1.4 Definitions, Acronyms &amp; Glossary</h2>
+  <table>
+    <thead><tr><th>Term</th><th>Definition</th></tr></thead>
+    <tbody>
+      <tr><td>Equirectangular</td><td>A 2:1 aspect ratio spherical panorama projection where the full 360°×180° field of view is mapped onto a flat rectangular image. Industry standard for interactive panoramic viewers.</td></tr>
+      <tr><td>OpenCV</td><td>Open Source Computer Vision Library. An Apache 2.0 licensed, royalty-free C++ library for image processing, feature detection, and panoramic stitching. Used via Android NDK (Native Development Kit).</td></tr>
+      <tr><td>CameraX</td><td>Google's Jetpack library providing a consistent, hardware-optimized camera API across Android devices from API 21+.</td></tr>
+      <tr><td>Gyroscope / IMU</td><td>Inertial Measurement Unit. The hardware sensor providing real-time 3-axis angular rotation data used to track phone orientation during capture.</td></tr>
+      <tr><td>Zenith / Nadir</td><td>The top pole (sky/ceiling) and bottom pole (floor/feet) of a sphere respectively. In handheld capture these areas are missing and must be filled via inpainting.</td></tr>
+      <tr><td>Inpainting</td><td>An image restoration algorithm (cv::inpaint) that fills masked/missing pixel regions by propagating texture and color from surrounding pixels.</td></tr>
+      <tr><td>Pannellum.js</td><td>A lightweight, WebGL-based open-source JavaScript panorama viewer that renders equirectangular images interactively in a browser.</td></tr>
+      <tr><td>AKAZE</td><td>Accelerated-KAZE. A robust feature descriptor algorithm used for keypoint detection and matching across overlapping images during stitching. Superior to SIFT/ORB for panoramic stitching accuracy.</td></tr>
+      <tr><td>Homography</td><td>A 3×3 projection matrix describing the geometric relationship between two camera views, computed from matched feature keypoints. Used to warp image planes onto a sphere.</td></tr>
+      <tr><td>WorkManager</td><td>Android Jetpack library that manages guaranteed background task execution, including network-resilient file uploads.</td></tr>
+      <tr><td>Room DB</td><td>Android Jetpack local SQLite abstraction layer used to persist capture sessions, queue items, and uploaded metadata locally on the device.</td></tr>
+      <tr><td>JNI</td><td>Java Native Interface. The bridge between Kotlin/Java Android code and native C++ OpenCV library functions.</td></tr>
+      <tr><td>GPano XMP</td><td>Google's Photo Sphere XMP metadata standard embedded in JPEG files that signals to browsers and viewers that the image is a full 360° panorama.</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ╔══════════════════════════════════════════╗ -->
+<!-- ║      SECTION 2: SYSTEM ARCHITECTURE     ║ -->
+<!-- ╚══════════════════════════════════════════╝ -->
+<div class="content page-break" id="s2">
+  <h1 class="section-title"><span class="num">2</span> System Architecture</h1>
+
+  <h2 class="sub-title" id="s2-1">2.1 High-Level Architecture Diagram</h2>
+  <div class="arch-diagram">
+    <div class="arch-layer android">
+      <div class="layer-title">📱 Android Capture App (On-Device — 100% Client Side)</div>
+      <div class="arch-row">
+        <div class="arch-box">🎯 Gyro Reticle UI<br/><span style="color:#64748b;font-size:7pt">SensorManager<br/>TYPE_ROTATION_VECTOR</span></div>
+        <div class="arch-box">📷 CameraX Capture<br/><span style="color:#64748b;font-size:7pt">ImageCapture API<br/>Auto-trigger on align</span></div>
+        <div class="arch-box">🧠 Orientation Tracker<br/><span style="color:#64748b;font-size:7pt">Yaw / Pitch / Roll<br/>Sphere progress map</span></div>
+      </div>
+      <div class="arch-arrow">↓ 24–36 raw JPG frames</div>
+      <div class="arch-row">
+        <div class="arch-box">🔷 AKAZE Feature Detection<br/><span style="color:#64748b;font-size:7pt">OpenCV C++ via NDK/JNI</span></div>
+        <div class="arch-box">🌐 Spherical Warping<br/><span style="color:#64748b;font-size:7pt">SphericalWarper<br/>Homography estimation</span></div>
+        <div class="arch-box">🎨 Multi-Band Blending<br/><span style="color:#64748b;font-size:7pt">GraphCutSeamFinder<br/>MultiBandBlender</span></div>
+        <div class="arch-box">🖌 Zenith/Nadir Inpaint<br/><span style="color:#64748b;font-size:7pt">cv::inpaint FMM<br/>Nadir Logo Cap</span></div>
+      </div>
+      <div class="arch-arrow">↓ 2:1 Equirectangular JPEG + GPano EXIF</div>
+      <div class="arch-row">
+        <div class="arch-box">🔗 Hotspot Linker<br/><span style="color:#64748b;font-size:7pt">Interactive 360° preview<br/>tap-to-link rooms</span></div>
+        <div class="arch-box">📋 Manifest Generator<br/><span style="color:#64748b;font-size:7pt">tour_manifest.json<br/>pitch/yaw hotspot coords</span></div>
+        <div class="arch-box">💾 Room DB Queue<br/><span style="color:#64748b;font-size:7pt">Offline persistence<br/>WorkManager upload</span></div>
+      </div>
+    </div>
+    <div class="arch-arrow">↕ HTTPS multipart/form-data upload | JWT Bearer Auth</div>
+    <div class="arch-layer backend">
+      <div class="layer-title">⚙️ Existing Ethred Backend API (No Changes)</div>
+      <div class="arch-row">
+        <div class="arch-box">POST /api/v1/auth/login<br/><span style="color:#64748b;font-size:7pt">JWT token exchange</span></div>
+        <div class="arch-box">POST /api/v1/properties<br/><span style="color:#64748b;font-size:7pt">Create / attach media</span></div>
+        <div class="arch-box">Static File Storage<br/><span style="color:#64748b;font-size:7pt">Render CDN / S3<br/>serves the JPEG files</span></div>
+        <div class="arch-box">PropertyMedia Table<br/><span style="color:#64748b;font-size:7pt">file_url | media_category<br/>IMAGE / DOCUMENT</span></div>
+      </div>
+    </div>
+    <div class="arch-arrow">↓ JSON (property.media[].file_url)</div>
+    <div class="arch-layer frontend">
+      <div class="layer-title">🌍 Existing Web Frontend</div>
+      <div class="arch-row">
+        <div class="arch-box">GET /api/v1/properties/:id<br/><span style="color:#64748b;font-size:7pt">Fetches property + media</span></div>
+        <div class="arch-box">Pannellum.js Viewer<br/><span style="color:#64748b;font-size:7pt">Renders equirectangular<br/>360° interactively</span></div>
+        <div class="arch-box">Manifest Parser<br/><span style="color:#64748b;font-size:7pt">Reads tour_manifest.json<br/>Builds multi-scene tour</span></div>
+      </div>
+    </div>
+  </div>
+
+  <h2 class="sub-title" id="s2-2">2.2 Android App Module Architecture (MVVM + Clean Architecture)</h2>
+  <table>
+    <thead><tr><th>Layer</th><th>Module / Package</th><th>Responsibility</th></tr></thead>
+    <tbody>
+      <tr><td>Presentation</td><td><code>ui.capture</code>, <code>ui.tour</code>, <code>ui.viewer</code></td><td>Jetpack Compose screens, ViewModels, UI state flows</td></tr>
+      <tr><td>Domain</td><td><code>domain.usecase</code></td><td>CaptureSessionUseCase, StitchPanoramaUseCase, UploadTourUseCase — pure business logic</td></tr>
+      <tr><td>Data</td><td><code>data.repository</code></td><td>CaptureSessionRepository, PropertyRepository — coordinates local Room DB and remote API calls</td></tr>
+      <tr><td>Native/NDK</td><td><code>jni/</code> C++ sources</td><td>OpenCV stitching pipeline, inpainting, EXIF writer — exposed via JNI bridge</td></tr>
+      <tr><td>Local Persistence</td><td><code>data.local.db</code></td><td>Room DB entities: CaptureSessionEntity, FrameEntity, HotspotEntity, UploadQueueEntity</td></tr>
+      <tr><td>Network</td><td><code>data.remote</code></td><td>Retrofit2 API client, AuthInterceptor (JWT), multipart upload service</td></tr>
+      <tr><td>Background</td><td><code>worker</code></td><td>Android WorkManager workers: StitchWorker, UploadWorker, ManifestWorker</td></tr>
+    </tbody>
+  </table>
+
+  <h2 class="sub-title" id="s2-3">2.3 On-Device Stitching Pipeline (Step-by-Step)</h2>
+  <ol>
+    <li><strong>Frame Input</strong>: 24–36 raw JPEG frames (3264×2448 px each) passed to native C++ via JNI as byte arrays.</li>
+    <li><strong>Decode &amp; Resize</strong>: OpenCV decodes each frame into a <code>cv::Mat</code> and downsamples to 1920×1440 px for feature detection (full resolution used for final blend).</li>
+    <li><strong>AKAZE Feature Detection</strong>: Per-frame keypoints and binary descriptors extracted using <code>cv::AKAZE::create()</code>.</li>
+    <li><strong>Feature Matching &amp; Filtering</strong>: FLANN-based matcher with ratio test (Lowe's ratio 0.75) identifies valid correspondences. Homography validated via RANSAC.</li>
+    <li><strong>Gyro-Assisted Camera Rotation Estimation</strong>: Initial rotation estimates seeded from logged Rotation Vector sensor data, refined by homography decomposition for accuracy.</li>
+    <li><strong>Spherical Warping</strong>: Each frame warped onto a sphere using <code>cv::detail::SphericalWarper</code> with focal length estimated from EXIF FOV data or manual calibration lookup table per device model.</li>
+    <li><strong>Seam Finding</strong>: Optimal seams between overlapping warp regions computed with <code>cv::detail::GraphCutSeamFinder</code> for the most visually seamless transitions.</li>
+    <li><strong>Exposure Compensation</strong>: <code>cv::detail::BlocksGainCompensator</code> equalizes brightness/color temperature across all frames before blending.</li>
+    <li><strong>Multi-Band Blending</strong>: <code>cv::detail::MultiBandBlender</code> with 5 pyramid levels blends seam regions to eliminate ghost artifacts.</li>
+    <li><strong>Equirectangular Crop &amp; Scale</strong>: Output cropped to 2:1 aspect ratio (target 8192×4096 px for high-end, 4096×2048 for standard). Missing pole regions filled with mask for inpainting pass.</li>
+    <li><strong>Inpainting Pass</strong>: <code>cv::inpaint()</code> with Navier-Stokes algorithm fills zenith and nadir regions. Nadir optionally receives agency logo cap overlay.</li>
+    <li><strong>EXIF XMP Write</strong>: GPano metadata tags written to output JPEG: <code>ProjectionType=equirectangular</code>, <code>UsePanoramaViewer=true</code>, <code>FullPanoWidthPixels</code>, <code>FullPanoHeightPixels</code>.</li>
+    <li><strong>Output</strong>: Final equirectangular JPEG saved to local <code>Room360/sessions/{session_id}/</code> directory.</li>
+  </ol>
+
+  <h2 class="sub-title" id="s2-4">2.4 Technology Stack</h2>
+  <table>
+    <thead><tr><th>Component</th><th>Technology</th><th>Version</th><th>License</th></tr></thead>
+    <tbody>
+      <tr><td>Language</td><td>Kotlin</td><td>1.9+</td><td>Apache 2.0</td></tr>
+      <tr><td>UI Framework</td><td>Jetpack Compose</td><td>1.5+</td><td>Apache 2.0</td></tr>
+      <tr><td>Camera</td><td>CameraX</td><td>1.3+</td><td>Apache 2.0</td></tr>
+      <tr><td>Image Processing</td><td>OpenCV Android SDK</td><td>4.8+</td><td>Apache 2.0 (Free)</td></tr>
+      <tr><td>Native Bridge</td><td>Android NDK + JNI</td><td>r25c+</td><td>BSD / Free</td></tr>
+      <tr><td>Local Database</td><td>Room + SQLite</td><td>2.6+</td><td>Apache 2.0</td></tr>
+      <tr><td>Network</td><td>Retrofit2 + OkHttp3</td><td>2.9 / 4.12</td><td>Apache 2.0</td></tr>
+      <tr><td>Async</td><td>Kotlin Coroutines + Flow</td><td>1.7+</td><td>Apache 2.0</td></tr>
+      <tr><td>Background Jobs</td><td>WorkManager</td><td>2.9+</td><td>Apache 2.0</td></tr>
+      <tr><td>DI Framework</td><td>Hilt (Dagger2)</td><td>2.48+</td><td>Apache 2.0</td></tr>
+      <tr><td>In-App Preview</td><td>SceneView (Three.js WebView)</td><td>Latest</td><td>MIT</td></tr>
+      <tr><td>JSON</td><td>Kotlinx Serialization / Gson</td><td>1.6+</td><td>Apache 2.0</td></tr>
+      <tr><td>Image Load</td><td>Coil</td><td>2.5+</td><td>Apache 2.0</td></tr>
+    </tbody>
+  </table>
+  <div class="callout success"><strong>✅ All Free &amp; Open Source.</strong> Every library in the technology stack is Apache 2.0 or MIT licensed with no per-use fees, API rate limits, or subscription requirements. The total additional server infrastructure cost from this feature is $0.00.</div>
+</div>
+
+<!-- ╔══════════════════════════════════════════╗ -->
+<!-- ║      SECTION 3: DATA SCHEMA             ║ -->
+<!-- ╚══════════════════════════════════════════╝ -->
+<div class="content page-break" id="s3">
+  <h1 class="section-title"><span class="num">3</span> Data Schema &amp; Backend Integration</h1>
+
+  <h2 class="sub-title" id="s3-1">3.1 Existing Prisma Backend Schema (100% Preserved — DO NOT MODIFY)</h2>
+  <pre><span class="cm">// Existing backend schema — no changes required or permitted</span>
+<span class="kw">model</span> <span class="type">PropertyMedia</span> {
+  id              <span class="type">String</span>    <span class="prop">@id</span> <span class="prop">@default</span>(uuid())
+  property_id     <span class="type">String</span>
+  file_url        <span class="type">String</span>    <span class="cm">// Stores 360° image URL or tour manifest URL</span>
+  media_category  <span class="type">MediaType</span> <span class="cm">// IMAGE | VIDEO | DOCUMENT</span>
+  sort_order      <span class="type">Int</span>
+}
+
+<span class="cm">// MediaType Enum (existing)</span>
+<span class="kw">enum</span> <span class="type">MediaType</span> {
+  IMAGE     <span class="cm">// ← Used for equirectangular 360° panorama JPEGs</span>
+  VIDEO
+  DOCUMENT  <span class="cm">// ← Used for tour_manifest.json multi-room linking file</span>
+}</pre>
+
+  <div class="callout warning"><strong>⚠️ Strict Boundary Rule.</strong> The Android application MUST NOT trigger any schema migrations, new table creation, or enum value additions on the existing database. All 360° media is stored using existing field conventions only.</div>
+
+  <h2 class="sub-title" id="s3-2">3.2 Android Local Room Database Schema</h2>
+  <p>The Android app maintains its own local SQLite database (via Room) for managing capture sessions offline and queuing uploads:</p>
+  <pre><span class="cm">-- Table: capture_sessions</span>
+<span class="kw">CREATE TABLE</span> capture_sessions (
+  id              TEXT PRIMARY KEY,   <span class="cm">-- UUID v4</span>
+  property_id     TEXT NOT NULL,      <span class="cm">-- Foreign key to ethred property</span>
+  room_name       TEXT NOT NULL,      <span class="cm">-- e.g. "Living Room"</span>
+  status          TEXT NOT NULL,      <span class="cm">-- CAPTURING | STITCHING | DONE | UPLOADING | UPLOADED | FAILED</span>
+  frame_count     INTEGER DEFAULT 0,
+  output_path     TEXT,               <span class="cm">-- Local file path of finished panorama JPEG</span>
+  created_at      INTEGER,            <span class="cm">-- Unix epoch ms</span>
+  uploaded_at     INTEGER             <span class="cm">-- Null until uploaded</span>
+);
+
+<span class="cm">-- Table: captured_frames</span>
+<span class="kw">CREATE TABLE</span> captured_frames (
+  id              TEXT PRIMARY KEY,
+  session_id      TEXT NOT NULL,
+  file_path       TEXT NOT NULL,      <span class="cm">-- Local path to raw JPEG frame</span>
+  yaw_deg         REAL NOT NULL,      <span class="cm">-- Gyro yaw at moment of capture</span>
+  pitch_deg       REAL NOT NULL,
+  roll_deg        REAL NOT NULL,
+  captured_at     INTEGER
+);
+
+<span class="cm">-- Table: hotspots</span>
+<span class="kw">CREATE TABLE</span> hotspots (
+  id              TEXT PRIMARY KEY,
+  from_session_id TEXT NOT NULL,      <span class="cm">-- Scene A</span>
+  to_session_id   TEXT NOT NULL,      <span class="cm">-- Scene B (target)</span>
+  pitch           REAL NOT NULL,      <span class="cm">-- Pannellum pitch coordinate</span>
+  yaw             REAL NOT NULL,      <span class="cm">-- Pannellum yaw coordinate</span>
+  label           TEXT                <span class="cm">-- e.g. "Go to Kitchen"</span>
+);
+
+<span class="cm">-- Table: upload_queue</span>
+<span class="kw">CREATE TABLE</span> upload_queue (
+  id              TEXT PRIMARY KEY,
+  session_id      TEXT NOT NULL,
+  property_id     TEXT NOT NULL,
+  file_url        TEXT,               <span class="cm">-- Populated after successful upload</span>
+  media_category  TEXT NOT NULL,      <span class="cm">-- "IMAGE" or "DOCUMENT"</span>
+  sort_order      INTEGER DEFAULT 0,
+  retry_count     INTEGER DEFAULT 0,
+  status          TEXT DEFAULT 'PENDING' <span class="cm">-- PENDING | IN_PROGRESS | DONE | FAILED</span>
+);</pre>
+
+  <h2 class="sub-title" id="s3-3">3.3 Virtual Tour Manifest JSON Schema</h2>
+  <p>When multiple 360° rooms are linked, the Android app generates a <code>tour_manifest.json</code> file that the web frontend reads to construct the interactive multi-scene Pannellum.js tour:</p>
+  <pre>{
+  <span class="prop">"version"</span>: <span class="str">"1.0"</span>,
+  <span class="prop">"property_id"</span>: <span class="str">"8f2b3e41-0000-4000-a000-123456789abc"</span>,
+  <span class="prop">"default_scene"</span>: <span class="str">"scene_living_room"</span>,
+  <span class="prop">"created_at"</span>: <span class="str">"2026-07-23T13:49:00Z"</span>,
+  <span class="prop">"scenes"</span>: [
+    {
+      <span class="prop">"id"</span>: <span class="str">"scene_living_room"</span>,
+      <span class="prop">"name"</span>: <span class="str">"Living Room"</span>,
+      <span class="prop">"file_url"</span>: <span class="str">"https://ethred-backend.onrender.com/uploads/living_room_360.jpg"</span>,
+      <span class="prop">"thumbnail_url"</span>: <span class="str">"https://ethred-backend.onrender.com/uploads/living_room_thumb.jpg"</span>,
+      <span class="prop">"pitch_offset"</span>: <span class="num">0</span>,
+      <span class="prop">"yaw_offset"</span>: <span class="num">0</span>,
+      <span class="prop">"hotspots"</span>: [
+        {
+          <span class="prop">"id"</span>: <span class="str">"hs_lr_to_kitchen"</span>,
+          <span class="prop">"pitch"</span>: <span class="num">-5.2</span>,
+          <span class="prop">"yaw"</span>: <span class="num">112.5</span>,
+          <span class="prop">"text"</span>: <span class="str">"Go to Kitchen"</span>,
+          <span class="prop">"target_scene_id"</span>: <span class="str">"scene_kitchen"</span>
+        }
+      ]
+    },
+    {
+      <span class="prop">"id"</span>: <span class="str">"scene_kitchen"</span>,
+      <span class="prop">"name"</span>: <span class="str">"Kitchen"</span>,
+      <span class="prop">"file_url"</span>: <span class="str">"https://ethred-backend.onrender.com/uploads/kitchen_360.jpg"</span>,
+      <span class="prop">"thumbnail_url"</span>: <span class="str">"https://ethred-backend.onrender.com/uploads/kitchen_thumb.jpg"</span>,
+      <span class="prop">"pitch_offset"</span>: <span class="num">0</span>,
+      <span class="prop">"yaw_offset"</span>: <span class="num">-180</span>,
+      <span class="prop">"hotspots"</span>: [
+        {
+          <span class="prop">"id"</span>: <span class="str">"hs_kitchen_to_lr"</span>,
+          <span class="prop">"pitch"</span>: <span class="num">-2.0</span>,
+          <span class="prop">"yaw"</span>: <span class="num">-75.0</span>,
+          <span class="prop">"text"</span>: <span class="str">"Return to Living Room"</span>,
+          <span class="prop">"target_scene_id"</span>: <span class="str">"scene_living_room"</span>
+        }
+      ]
+    }
+  ]
+}</pre>
+
+  <h2 class="sub-title" id="s3-4">3.4 API Integration Contracts</h2>
+  <h3 class="sub-sub-title">Step 1: Authentication</h3>
+  <pre><span class="cm">// Request</span>
+<span class="kw">POST</span> /api/v1/auth/login
+Content-Type: application/json
+
+{ <span class="prop">"email"</span>: <span class="str">"agent@example.com"</span>, <span class="prop">"password"</span>: <span class="str">"..."</span> }
+
+<span class="cm">// Response — store access_token for all subsequent requests</span>
+{ <span class="prop">"access_token"</span>: <span class="str">"eyJhbGciOi..."</span>, <span class="prop">"expires_in"</span>: <span class="num">3600</span> }</pre>
+
+  <h3 class="sub-sub-title">Step 2: Upload Panorama Image (Multipart)</h3>
+  <pre><span class="kw">POST</span> /api/v1/upload  <span class="cm">// or whichever file upload endpoint exists</span>
+Authorization: Bearer {access_token}
+Content-Type: multipart/form-data
+
+Body: file=@living_room_360.jpg
+
+<span class="cm">// Response</span>
+{ <span class="prop">"file_url"</span>: <span class="str">"https://ethred-backend.onrender.com/uploads/living_room_360.jpg"</span> }</pre>
+
+  <h3 class="sub-sub-title">Step 3: Attach Media to Property</h3>
+  <pre><span class="kw">POST</span> /api/v1/properties/{property_id}/media  <span class="cm">// or POST /api/v1/properties (if inline)</span>
+Authorization: Bearer {access_token}
+Content-Type: application/json
+
+{
+  <span class="prop">"file_url"</span>: <span class="str">"https://ethred-backend.onrender.com/uploads/living_room_360.jpg"</span>,
+  <span class="prop">"media_category"</span>: <span class="str">"IMAGE"</span>,
+  <span class="prop">"sort_order"</span>: <span class="num">1</span>
+}</pre>
+
+  <h3 class="sub-sub-title">Step 4: Upload Tour Manifest (Multi-Room)</h3>
+  <pre><span class="kw">POST</span> /api/v1/properties/{property_id}/media
+Authorization: Bearer {access_token}
+Content-Type: application/json
+
+{
+  <span class="prop">"file_url"</span>: <span class="str">"https://ethred-backend.onrender.com/uploads/tour_manifest_abc123.json"</span>,
+  <span class="prop">"media_category"</span>: <span class="str">"DOCUMENT"</span>,
+  <span class="prop">"sort_order"</span>: <span class="num">0</span>
+}</pre>
+</div>
+
+<!-- ╔══════════════════════════════════════════╗ -->
+<!-- ║   SECTION 4: FUNCTIONAL REQUIREMENTS    ║ -->
+<!-- ╚══════════════════════════════════════════╝ -->
+<div class="content page-break" id="s4">
+  <h1 class="section-title"><span class="num">4</span> Functional Requirements</h1>
+
+  <h2 class="sub-title" id="s4-1">4.1 Authentication &amp; Authorization (FR-AUTH)</h2>
+
+  <div class="req-card">
+    <div class="req-id">FR-AUTH-01</div>
+    <div class="req-title">JWT Login via Existing Auth API</div>
+    <div class="req-desc">The application MUST authenticate users by sending credentials to <code>POST /api/v1/auth/login</code> and securely storing the returned JWT access token in Android <code>EncryptedSharedPreferences</code> (AES-256 encrypted).</div>
+    <div class="req-details"><ul>
+      <li>Token MUST be attached as <code>Authorization: Bearer {token}</code> header on every API request</li>
+      <li>App MUST detect token expiry (HTTP 401 response) and trigger re-authentication flow without data loss</li>
+      <li>Token MUST be cleared on explicit user logout</li>
+    </ul></div>
+  </div>
+
+  <div class="req-card">
+    <div class="req-id">FR-AUTH-02</div>
+    <div class="req-title">Role-Based Access Control</div>
+    <div class="req-desc">Only users with roles <code>AGENT</code> or <code>SELLER</code> (as returned in the JWT payload or user profile API) MUST be permitted to access the 360° capture feature. Buyers should see a read-only message directing them to the web viewer.</div>
+  </div>
+
+  <h2 class="sub-title" id="s4-2">4.2 Gyroscope-Guided Frame Capture (FR-CAP)</h2>
+
+  <div class="req-card">
+    <div class="req-id">FR-CAP-01</div>
+    <div class="req-title">Hardware Sensor Initialization &amp; Validation</div>
+    <div class="req-desc">On capture screen launch, the app MUST verify the presence of a hardware gyroscope using <code>PackageManager.FEATURE_SENSOR_GYROSCOPE</code>. If absent, a clear error dialog MUST be shown with the message: "This device does not have a gyroscope sensor, which is required for 360° capture. Please use a compatible Android device."</div>
+    <div class="req-details"><ul>
+      <li>Use <code>SensorManager.TYPE_ROTATION_VECTOR</code> for fused orientation (gyro + accelerometer + magnetometer)</li>
+      <li>Sensor update interval: <code>SensorManager.SENSOR_DELAY_UI</code> (approx. 16ms)</li>
+      <li>Apply low-pass filter to raw sensor data to smooth jitter: <code>filteredAngle = α × previous + (1 - α) × raw</code> where α = 0.15</li>
+    </ul></div>
+  </div>
+
+  <div class="req-card">
+    <div class="req-id">FR-CAP-02</div>
+    <div class="req-title">Spherical Target Grid (Capture Reticle Overlay)</div>
+    <div class="req-desc">The capture UI MUST display a live augmented-reality style reticle overlaid on the CameraX viewfinder. The reticle maps the phone's current orientation to a 2D projection of the capture sphere, visually guiding the user to systematically cover all angles.</div>
+    <div class="req-details">
+      <strong>Capture Grid Structure:</strong>
+      <ul>
+        <li><strong>Upper Ring (Pitch +30°)</strong>: 8 evenly spaced target dots at yaw intervals of 0°, 45°, 90°, 135°, 180°, 225°, 270°, 315°</li>
+        <li><strong>Horizontal Ring (Pitch 0°)</strong>: 12 target dots at yaw intervals of 30°</li>
+        <li><strong>Lower Ring (Pitch -30°)</strong>: 8 evenly spaced target dots</li>
+        <li>Total: 28 target dots (minimum; user may capture more)</li>
+      </ul>
+      <strong>Dot State Colors:</strong>
+      <ul>
+        <li>⚪ Gray: Not yet captured</li>
+        <li>🔵 Blue pulsing: Currently in alignment zone (within ±3°)</li>
+        <li>🟢 Green checkmark: Successfully captured</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="req-card">
+    <div class="req-id">FR-CAP-03</div>
+    <div class="req-title">Auto-Trigger Frame Capture</div>
+    <div class="req-desc">The camera MUST automatically capture a frame using <code>CameraX ImageCapture.takePicture()</code> when the following conditions are met simultaneously:</div>
+    <div class="req-details"><ul>
+      <li>Phone orientation is within ±2° tolerance of a target dot</li>
+      <li>Orientation has been stable within this zone for ≥ 300ms (debounce period)</li>
+      <li>Camera auto-focus and auto-exposure have converged (AE state = CONVERGED)</li>
+      <li>The target dot has NOT already been captured (prevents duplicate frames)</li>
+    </ul>
+    On capture trigger:
+    <ul>
+      <li>Screen MUST flash white briefly (shutter animation)</li>
+      <li>Device MUST produce haptic feedback (short single vibration)</li>
+      <li>The captured dot MUST immediately turn green with a checkmark animation</li>
+      <li>A progress indicator shows X/28 frames captured</li>
+    </ul></div>
+  </div>
+
+  <div class="req-card">
+    <div class="req-id">FR-CAP-04</div>
+    <div class="req-title">Capture Quality Settings</div>
+    <div class="req-desc">The CameraX ImageCapture configuration MUST use the following settings for optimal stitching quality:</div>
+    <div class="req-details"><ul>
+      <li>Resolution: <code>ResolutionStrategy.HIGHEST_AVAILABLE_STRATEGY</code> (or minimum 12MP / 4032×3024)</li>
+      <li>JPEG Quality: 95% (not 100% to avoid excessively large files)</li>
+      <li>White Balance: <code>AWB_MODE_AUTO</code> — locked after first frame capture to ensure color consistency across all frames</li>
+      <li>Exposure: AE locked after first frame capture</li>
+      <li>Flash: Disabled (flash causes uneven exposure across panorama)</li>
+      <li>Zoom: Fixed at 1.0× (no optical zoom)</li>
+    </ul></div>
+  </div>
+
+  <div class="req-card">
+    <div class="req-id">FR-CAP-05</div>
+    <div class="req-title">Manual Override &amp; Completion</div>
+    <div class="req-desc">The user MUST be able to manually tap any target dot to force capture at that position. The user MUST also be able to complete capture early once a minimum of 16 frames have been captured (covering approximately 80% of the horizontal rings) via a "Finish Capture" button.</div>
+  </div>
+
+  <div class="req-card">
+    <div class="req-id">FR-CAP-06</div>
+    <div class="req-title">Session Recovery</div>
+    <div class="req-desc">If the app is backgrounded or the device is rotated during capture, the session MUST resume from where it left off. Already-captured dots MUST remain green and the remaining frames must still be capturable. Captured frames MUST be persisted to the Room database immediately after capture.</div>
+  </div>
+
+  <h2 class="sub-title" id="s4-3">4.3 On-Device OpenCV Stitching Engine (FR-STITCH)</h2>
+
+  <div class="req-card">
+    <div class="req-id">FR-STITCH-01</div>
+    <div class="req-title">Native C++ OpenCV NDK Integration</div>
+    <div class="req-desc">The stitching engine MUST be implemented in C++ using OpenCV 4.8+ compiled for Android ARM64 (ABI: arm64-v8a and armeabi-v7a for compatibility). The native library MUST be exposed to Kotlin via a JNI bridge class.</div>
+    <div class="req-details"><ul>
+      <li>Native library file: <code>libstitcher.so</code></li>
+      <li>JNI class: <code>com.ethred.panorama.stitching.NativeStitcher</code></li>
+      <li>Method: <code>external fun stitchFrames(framePaths: Array&lt;String&gt;, gyroDegrees: FloatArray, outputPath: String): StitchResult</code></li>
+    </ul></div>
+  </div>
+
+  <div class="req-card">
+    <div class="req-id">FR-STITCH-02</div>
+    <div class="req-title">AKAZE Feature Detection &amp; Matching</div>
+    <div class="req-desc">The stitching pipeline MUST use AKAZE (Accelerated-KAZE) feature detection as the primary algorithm. ORB MUST be available as a fallback for devices with insufficient RAM (&lt;3GB) since AKAZE is more memory intensive.</div>
+    <div class="req-details">
+      Parameters for AKAZE:
+      <ul>
+        <li><code>descriptor_type = DESCRIPTOR_MLDB</code></li>
+        <li><code>descriptor_size = 0</code> (full size)</li>
+        <li><code>threshold = 0.001f</code></li>
+        <li>Matching: <code>cv::FlannBasedMatcher</code> with LSH index (binary descriptors)</li>
+        <li>Ratio test threshold: 0.75 (Lowe's ratio)</li>
+        <li>RANSAC threshold: 4.0 pixels for homography rejection</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="req-card">
+    <div class="req-id">FR-STITCH-03</div>
+    <div class="req-title">Spherical Projection, Seam Carving &amp; Multi-Band Blending</div>
+    <div class="req-desc">The stitching pipeline MUST execute the full OpenCV detail stitching pipeline:</div>
+    <div class="req-details"><ul>
+      <li>Warper: <code>cv::detail::SphericalWarper</code> with focal length estimated from camera EXIF metadata (focal_length_mm / sensor_width_mm × image_width_px). Fallback: device model lookup table (provided in code as a hardcoded map of common devices).</li>
+      <li>Exposure Compensation: <code>cv::detail::BlocksGainCompensator</code> with block_size=32</li>
+      <li>Seam Finder: <code>cv::detail::GraphCutSeamFinder(COST_COLOR_GRAD)</code></li>
+      <li>Blender: <code>cv::detail::MultiBandBlender</code> with num_bands=5</li>
+      <li>Output: <code>cv::Mat</code> converted to <code>cv::IMWRITE_JPEG_QUALITY=92</code></li>
+    </ul></div>
+  </div>
+
+  <div class="req-card">
+    <div class="req-id">FR-STITCH-04</div>
+    <div class="req-title">Output Resolution &amp; EXIF Metadata</div>
+    <div class="req-desc">The stitching pipeline MUST produce an equirectangular JPEG at 2:1 aspect ratio:</div>
+    <div class="req-details">
+      Resolution tiers based on device RAM:
+      <ul>
+        <li>&gt;6GB RAM: 8192×4096 px (high resolution)</li>
+        <li>3–6GB RAM: 4096×2048 px (standard resolution)</li>
+        <li>&lt;3GB RAM: 2048×1024 px (compact resolution)</li>
+      </ul>
+      Required EXIF XMP metadata (GPano namespace):
+      <ul>
+        <li><code>GPano:ProjectionType = equirectangular</code></li>
+        <li><code>GPano:UsePanoramaViewer = True</code></li>
+        <li><code>GPano:FullPanoWidthPixels = [output_width]</code></li>
+        <li><code>GPano:FullPanoHeightPixels = [output_height]</code></li>
+        <li><code>GPano:CroppedAreaImageWidthPixels = [output_width]</code></li>
+        <li><code>GPano:CroppedAreaImageHeightPixels = [output_height]</code></li>
+        <li><code>GPano:CroppedAreaLeftPixels = 0</code></li>
+        <li><code>GPano:CroppedAreaTopPixels = 0</code></li>
+      </ul>
+    </div>
+  </div>
+
+  <h2 class="sub-title" id="s4-4">4.4 Gap Inpainting &amp; Post-Processing (FR-FILL)</h2>
+
+  <div class="req-card">
+    <div class="req-id">FR-FILL-01</div>
+    <div class="req-title">Zenith (Ceiling/Sky) Inpainting</div>
+    <div class="req-desc">The top circular region of the equirectangular output (the zenith, approximately 10–15% of image height) will be missing due to hardware limitations of handheld capture. The engine MUST apply <code>cv::inpaint(src, mask, dst, inpaintRadius=3, INPAINT_NS)</code> where the mask covers this missing region, propagating surrounding texture upward seamlessly.</div>
+  </div>
+
+  <div class="req-card">
+    <div class="req-id">FR-FILL-02</div>
+    <div class="req-title">Nadir (Floor/Feet) Coverage</div>
+    <div class="req-desc">The nadir (bottom circular region) will contain the user's feet and floor. The app MUST offer the user three nadir cap options before uploading:</div>
+    <div class="req-details"><ul>
+      <li><strong>Auto Inpaint</strong>: Run <code>cv::inpaint</code> to fill the area with a continuation of the floor texture</li>
+      <li><strong>Smooth Blur Gradient</strong>: Apply a circular radial gradient feathering the bottom to neutral gray/black</li>
+      <li><strong>Agency Logo Cap</strong>: Overlay a pre-set circular agency/brand logo image (loaded from app settings) centered at the nadir point — this is the professional standard used by Matterport</li>
+    </ul></div>
+  </div>
+
+  <div class="req-card">
+    <div class="req-id">FR-FILL-03</div>
+    <div class="req-title">Automatic Horizon Leveling</div>
+    <div class="req-desc">The stitching engine MUST auto-correct horizon tilt by analyzing the gravitational vector logged during capture sessions and applying a roll correction rotation to the final equirectangular output, ensuring the horizon appears straight when viewed in a browser.</div>
+  </div>
+
+  <h2 class="sub-title" id="s4-5">4.5 Multi-Room Tour Builder (FR-TOUR)</h2>
+
+  <div class="req-card">
+    <div class="req-id">FR-TOUR-01</div>
+    <div class="req-title">Property Session Management</div>
+    <div class="req-desc">The app MUST allow users to create a capture session linked to a specific property (identified by its backend property_id). Within each property session, users MUST be able to add, name, and re-order multiple individual room captures (up to 20 rooms per property).</div>
+  </div>
+
+  <div class="req-card">
+    <div class="req-id">FR-TOUR-02</div>
+    <div class="req-title">Interactive Hotspot Placement Editor</div>
+    <div class="req-desc">After stitching, the app MUST display an interactive 360° preview of each room (using an in-app WebView with Pannellum.js or SceneView). The user MUST be able to long-press anywhere on the 360° preview to drop a hotspot marker. A bottom sheet dialog MUST appear prompting them to select the target room this hotspot links to.</div>
+    <div class="req-details"><ul>
+      <li>Dropped hotspot position MUST record the Pannellum-compatible pitch and yaw coordinates (in degrees)</li>
+      <li>Hotspots MUST be visually represented by an animated arrow icon in the preview</li>
+      <li>Maximum 5 hotspots per room scene</li>
+      <li>Hotspots MUST be editable (tap to change target) and deletable (long-press to remove)</li>
+    </ul></div>
+  </div>
+
+  <div class="req-card">
+    <div class="req-id">FR-TOUR-03</div>
+    <div class="req-title">Tour Manifest Generation</div>
+    <div class="req-desc">When the user finalizes a multi-room tour, the app MUST generate a valid <code>tour_manifest.json</code> file (as defined in Section 3.3) and save it locally. This manifest MUST be uploaded to the backend as a separate file and registered as a <code>DOCUMENT</code> type media asset with <code>sort_order: 0</code>.</div>
+  </div>
+
+  <h2 class="sub-title" id="s4-6">4.6 Backend Upload &amp; Sync (FR-SYNC)</h2>
+
+  <div class="req-card">
+    <div class="req-id">FR-SYNC-01</div>
+    <div class="req-title">Network-Resilient Upload Queue</div>
+    <div class="req-desc">All uploads (panorama JPEGs and manifest JSON) MUST be enqueued in the Room <code>upload_queue</code> table immediately. A WorkManager <code>UploadWorker</code> MUST process this queue with the following constraints:</div>
+    <div class="req-details"><ul>
+      <li>Constraint: <code>NetworkType.CONNECTED</code> (executes only when online)</li>
+      <li>Retry policy: Exponential backoff starting at 30 seconds, max 5 retries</li>
+      <li>If all retries fail, the queue item MUST be marked <code>FAILED</code> and the user MUST be shown an inline notification with a "Retry" action</li>
+      <li>Upload progress MUST be shown in the Android notification drawer as a persistent notification with a progress bar</li>
+    </ul></div>
+  </div>
+
+  <div class="req-card">
+    <div class="req-id">FR-SYNC-02</div>
+    <div class="req-title">Thumbnail Generation</div>
+    <div class="req-desc">Before upload, the app MUST generate a 512×256 px thumbnail JPEG of the equirectangular panorama for display in the property listing's media gallery. The thumbnail MUST be uploaded alongside the full-resolution panorama and registered as a separate IMAGE media entry.</div>
+  </div>
+
+  <div class="req-card">
+    <div class="req-id">FR-SYNC-03</div>
+    <div class="req-title">Post-Upload Cleanup</div>
+    <div class="req-desc">After all files for a property session have been successfully uploaded and confirmed by the backend (HTTP 200/201), the app MUST:</div>
+    <div class="req-details"><ul>
+      <li>Mark all queue items as <code>DONE</code> in the Room DB</li>
+      <li>Delete raw captured frames from local storage (to free device storage)</li>
+      <li>Retain only the final stitched JPEG locally (for offline preview)</li>
+      <li>Display a success confirmation dialog with a "View on Website" deeplink option</li>
+    </ul></div>
+  </div>
+
+  <h2 class="sub-title" id="s4-7">4.7 Local Preview Viewer (FR-VIEW)</h2>
+
+  <div class="req-card">
+    <div class="req-id">FR-VIEW-01</div>
+    <div class="req-title">In-App 360° Preview Before Upload</div>
+    <div class="req-desc">After stitching completes, the app MUST immediately display a fully interactive 360° panorama preview using a WebView-embedded Pannellum.js viewer (or SceneView) loaded from a local <code>file://</code> path — no internet connection required. The user MUST be able to pan, tilt, and zoom within the preview before deciding to approve or retake the panorama.</div>
+  </div>
+
+  <div class="req-card">
+    <div class="req-id">FR-VIEW-02</div>
+    <div class="req-title">Capture Quality Scoring</div>
+    <div class="req-desc">The app MUST display an automatic quality score on the preview screen (1–5 stars) derived from the stitching engine's internal metrics:</div>
+    <div class="req-details"><ul>
+      <li>Number of matched feature keypoints (higher = better)</li>
+      <li>Reprojection error from RANSAC homography (lower = better)</li>
+      <li>Percentage of inpainted regions (lower = better)</li>
+      <li>A low quality score (≤ 2 stars) MUST trigger a prominent warning recommending retake</li>
+    </ul></div>
+  </div>
+</div>
+
+<!-- ╔══════════════════════════════════════════╗ -->
+<!-- ║   SECTION 5: NON-FUNCTIONAL REQUIREMENTS║ -->
+<!-- ╚══════════════════════════════════════════╝ -->
+<div class="content page-break" id="s5">
+  <h1 class="section-title"><span class="num">5</span> Non-Functional Requirements</h1>
+
+  <h2 class="sub-title">5.1 Performance Requirements (NFR-PERF)</h2>
+
+  <table>
+    <thead><tr><th>Metric</th><th>Target</th><th>Measurement Condition</th></tr></thead>
+    <tbody>
+      <tr><td>Stitching Time (24 frames)</td><td>≤ 12 seconds</td><td>High-end device: Snapdragon 8 Gen 1+, 8GB RAM</td></tr>
+      <tr><td>Stitching Time (28 frames)</td><td>≤ 20 seconds</td><td>Mid-range device: Snapdragon 700-series, 6GB RAM</td></tr>
+      <tr><td>Stitching Time (28 frames)</td><td>≤ 45 seconds</td><td>Low-end device: MediaTek Helio G90, 4GB RAM</td></tr>
+      <tr><td>App Cold Start Time</td><td>≤ 2.5 seconds</td><td>Pixel 6a or equivalent</td></tr>
+      <tr><td>Camera Preview Latency</td><td>≤ 100ms</td><td>From app resume to live preview visible</td></tr>
+      <tr><td>Sensor-to-Reticle Lag</td><td>≤ 32ms</td><td>Gyro sensor update to reticle position update</td></tr>
+      <tr><td>Max RAM During Stitching</td><td>≤ 512MB</td><td>Monitored via Android Profiler during stitching worker</td></tr>
+      <tr><td>Upload Speed (LTE)</td><td>Full 4096×2048 JPEG ≤ 20 seconds</td><td>File size approx. 8–15MB, LTE ~50Mbps</td></tr>
+    </tbody>
+  </table>
+
+  <h2 class="sub-title">5.2 Memory &amp; Storage Management (NFR-MEM)</h2>
+  <ul>
+    <li>Every <code>cv::Mat</code> object allocated in the native C++ layer MUST be explicitly released via <code>mat.release()</code> or destructor pattern to prevent native heap OOM crashes.</li>
+    <li>Input frames MUST be processed one-at-a-time in the feature detection phase, not all loaded simultaneously into memory.</li>
+    <li>App MUST check available storage before starting a capture session. Minimum required: 500MB free (for 36 raw frames at ~5MB each + output panorama + temp files). If insufficient, the user MUST be warned with an option to free storage before proceeding.</li>
+    <li>Raw frames MUST be deleted from local storage immediately after successful upload to the backend.</li>
+    <li>Stitched panoramas MUST be kept locally for 30 days then automatically removed if they have been successfully uploaded (configurable in settings).</li>
+  </ul>
+
+  <h2 class="sub-title">5.3 Compatibility Requirements (NFR-COMPAT)</h2>
+  <table>
+    <thead><tr><th>Requirement</th><th>Value</th></tr></thead>
+    <tbody>
+      <tr><td>Minimum SDK</td><td>Android 7.0 (API 24)</td></tr>
+      <tr><td>Target SDK</td><td>Android 15 (API 35)</td></tr>
+      <tr><td>Native ABI Targets</td><td>arm64-v8a (primary), armeabi-v7a (fallback)</td></tr>
+      <tr><td>Required Hardware Sensor</td><td>Gyroscope (<code>FEATURE_SENSOR_GYROSCOPE</code>)</td></tr>
+      <tr><td>Required Minimum RAM</td><td>3GB physical RAM</td></tr>
+      <tr><td>Required Minimum Camera</td><td>8MP rear camera with autofocus</td></tr>
+      <tr><td>Display Resolution</td><td>Minimum 1080×1920 px</td></tr>
+      <tr><td>Internet</td><td>Required only for upload; capture + stitching = fully offline</td></tr>
+    </tbody>
+  </table>
+
+  <h2 class="sub-title">5.4 Reliability &amp; Offline Resilience (NFR-RELY)</h2>
+  <ul>
+    <li>The app MUST be functional offline for all stages except upload (capture, stitch, preview, hotspot editing).</li>
+    <li>WorkManager upload tasks MUST survive device reboots — they MUST be re-enqueued via <code>EXPEDITED</code> work type with persistent constraints.</li>
+    <li>If the stitching process is killed mid-way (due to OOM or backgrounding), the app MUST NOT delete any captured raw frames. The user MUST be prompted to retry stitching when they reopen the session.</li>
+    <li>Crash rate target: &lt; 0.1% of sessions (measured via Firebase Crashlytics).</li>
+    <li>ANR rate target: &lt; 0.05% of sessions.</li>
+  </ul>
+
+  <h2 class="sub-title">5.5 Usability &amp; Accessibility (NFR-UX)</h2>
+  <ul>
+    <li>All text MUST have minimum contrast ratio of 4.5:1 against background (WCAG 2.1 AA).</li>
+    <li>All interactive elements MUST have a minimum touch target size of 48×48 dp.</li>
+    <li>The guided capture flow MUST be completable by a first-time user without reading any external documentation — onboarding MUST include a 30-second interactive tutorial on first launch.</li>
+    <li>The app MUST support landscape and portrait orientation in the capture view.</li>
+    <li>All haptic feedback MUST be suppressable in Settings for users with sensory sensitivities.</li>
+    <li>App MUST support TalkBack accessibility (all UI elements MUST have meaningful <code>contentDescription</code> attributes).</li>
+  </ul>
+
+  <h2 class="sub-title">5.6 Localization (NFR-L10N)</h2>
+  <ul>
+    <li>The app MUST support English (en) and Amharic (am) languages as initial languages.</li>
+    <li>All UI strings MUST be externalized to <code>strings.xml</code> (no hardcoded strings in Kotlin/Compose code).</li>
+    <li>Date and time formatting MUST respect device locale settings.</li>
+  </ul>
+</div>
+
+<!-- ╔══════════════════════════════════════════╗ -->
+<!-- ║   SECTION 6: USE CASE SCENARIOS         ║ -->
+<!-- ╚══════════════════════════════════════════╝ -->
+<div class="content page-break" id="s6">
+  <h1 class="section-title"><span class="num">6</span> Use Case Scenarios</h1>
+
+  <h2 class="sub-title">UC-01: Agent Captures First 360° Room Panorama</h2>
+  <div class="uc-card">
+    <h4>🏠 UC-01: First Time 360° Capture — Single Room</h4>
+    <p style="color:#0369a1;font-size:9pt;margin-bottom:14px;"><strong>Actor:</strong> Real Estate Agent | <strong>Precondition:</strong> Logged in, existing property in backend system, phone has hardware gyroscope</p>
+    <div class="uc-step"><div class="step-num">1</div><div class="step-text"><strong>Agent Action:</strong> Opens the Ethred app and navigates to their property dashboard. Selects the property "Villa #307, Bole" and taps the "+ Add 360° Photos" button.</div></div>
+    <div class="uc-step"><div class="step-num">2</div><div class="step-text"><strong>System Action:</strong> Displays the Room Setup screen. Agent types room name "Living Room" and taps "Start Capture".</div></div>
+    <div class="uc-step"><div class="step-num">3</div><div class="step-text"><strong>System Action:</strong> Opens CameraX viewfinder with the spherical reticle overlay. 28 gray target dots appear floating over the camera feed. A voice/text prompt reads "Stand in the center of the room. Hold your phone upright. Slowly rotate 360°."</div></div>
+    <div class="uc-step"><div class="step-num">4</div><div class="step-text"><strong>Agent Action:</strong> Slowly rotates in place. As phone orientation approaches target dots, dots pulse blue.</div></div>
+    <div class="uc-step"><div class="step-num">5</div><div class="step-text"><strong>System Action:</strong> On alignment lock: <em>click</em> sound + haptic. Dot turns green with checkmark. Frame saved to session. Counter updates: "5/28".</div></div>
+    <div class="uc-step"><div class="step-num">6</div><div class="step-text"><strong>Agent Action:</strong> Completes all 28 dots after about 3–4 minutes. Taps "Finish Capture".</div></div>
+    <div class="uc-step"><div class="step-num">7</div><div class="step-text"><strong>System Action:</strong> Stitching progress screen shown. Animated progress indicator with stage labels: "Detecting features... Warping... Blending... Filling gaps... Done!". Completes in ~12 seconds on the agent's Pixel 7a.</div></div>
+    <div class="uc-step"><div class="step-num">8</div><div class="step-text"><strong>System Action:</strong> Full interactive 360° preview opens in-app. Quality score: ⭐⭐⭐⭐ (4/5). Nadir cap selector shows. Agent selects "Agency Logo".</div></div>
+    <div class="uc-step"><div class="step-num">9</div><div class="step-text"><strong>Agent Action:</strong> Reviews panorama, satisfied. Taps "Upload to Property Listing".</div></div>
+    <div class="uc-step"><div class="step-num">10</div><div class="step-text"><strong>System Action:</strong> WorkManager queues upload. JPEG uploaded to backend (POST /upload). media_category: IMAGE attached to Property #307 (POST /api/v1/properties/{id}/media). Notification shows upload progress.</div></div>
+    <div class="uc-step"><div class="step-num">11</div><div class="step-text"><strong>System Action:</strong> Upload complete. Toast: "✅ 360° photo published to Villa #307 listing." Property #307's web listing now shows an interactive 360° viewer powered by Pannellum.js.</div></div>
+  </div>
+
+  <h2 class="sub-title">UC-02: Agent Creates Multi-Room Virtual Tour</h2>
+  <div class="uc-card">
+    <h4>🔗 UC-02: Multi-Room Tour With Hotspot Navigation</h4>
+    <p style="color:#0369a1;font-size:9pt;margin-bottom:14px;"><strong>Actor:</strong> Real Estate Agent | <strong>Precondition:</strong> UC-01 completed for Living Room; agent wants to add Kitchen and link them</p>
+    <div class="uc-step"><div class="step-num">1</div><div class="step-text"><strong>Agent Action:</strong> On property session screen, taps "+ Add Another Room". Names it "Kitchen".</div></div>
+    <div class="uc-step"><div class="step-num">2</div><div class="step-text"><strong>System Action:</strong> Opens capture screen again. Agent walks to kitchen and captures 28 frames. Stitching completes.</div></div>
+    <div class="uc-step"><div class="step-num">3</div><div class="step-text"><strong>Agent Action:</strong> On Tour Editor screen, opens Living Room 360° preview. Long-presses near the kitchen doorway in the panorama.</div></div>
+    <div class="uc-step"><div class="step-num">4</div><div class="step-text"><strong>System Action:</strong> Bottom sheet opens: "Add Hotspot — Where does this take you?" Lists: Living Room ✓ · Kitchen · Bedroom. Agent selects "Kitchen".</div></div>
+    <div class="uc-step"><div class="step-num">5</div><div class="step-text"><strong>System Action:</strong> Blue arrow hotspot icon appears at the doorway position. Pitch: -4.8°, Yaw: 113.2° recorded. Agent repeats for Kitchen → Living Room link.</div></div>
+    <div class="uc-step"><div class="step-num">6</div><div class="step-text"><strong>Agent Action:</strong> Taps "Publish Tour".</div></div>
+    <div class="uc-step"><div class="step-num">7</div><div class="step-text"><strong>System Action:</strong> Generates <code>tour_manifest.json</code>. Uploads both panorama JPEGs (IMAGE type) and the manifest file (DOCUMENT type). All 3 files attached to Property #307.</div></div>
+    <div class="uc-step"><div class="step-num">8</div><div class="step-text"><strong>Result:</strong> Property #307 web page shows a full multi-room virtual tour. Buyers can click the kitchen doorway arrow in the Living Room to seamlessly transition to the Kitchen view — exactly like Redfin/Matterport.</div></div>
+  </div>
+
+  <h2 class="sub-title">UC-03: Offline Capture With Delayed Upload</h2>
+  <div class="uc-card">
+    <h4>📵 UC-03: Offline Capture → Auto-Sync When Connected</h4>
+    <p style="color:#0369a1;font-size:9pt;margin-bottom:14px;"><strong>Actor:</strong> Agent in a basement/rural area without network signal | <strong>Precondition:</strong> Phone in airplane mode or no signal</p>
+    <div class="uc-step"><div class="step-num">1</div><div class="step-text"><strong>Agent Action:</strong> Opens app in offline mode. Property data previously loaded is available from Room DB cache.</div></div>
+    <div class="uc-step"><div class="step-num">2</div><div class="step-text"><strong>Agent Action:</strong> Captures and stitches 3 rooms fully offline. All data persisted in Room DB and local file system.</div></div>
+    <div class="uc-step"><div class="step-num">3</div><div class="step-text"><strong>System Action:</strong> Upload queue shows "3 rooms pending upload". All items in PENDING status.</div></div>
+    <div class="uc-step"><div class="step-num">4</div><div class="step-text"><strong>System Action:</strong> Agent drives back to office, phone connects to Wi-Fi. WorkManager NetworkType.CONNECTED constraint triggers automatically.</div></div>
+    <div class="uc-step"><div class="step-num">5</div><div class="step-text"><strong>System Action:</strong> Background UploadWorker runs. All 3 rooms + manifests uploaded sequentially. Persistent notification shows "Uploading 360° photos — 2/3 complete".</div></div>
+    <div class="uc-step"><div class="step-num">6</div><div class="step-text"><strong>System Action:</strong> Upload complete. Push notification delivered: "✅ Sunshine Apartment — 3 rooms published successfully." Raw frames deleted from local storage.</div></div>
+  </div>
+
+  <h2 class="sub-title">UC-04: Low Quality Stitching — Retake Prompt</h2>
+  <div class="uc-card">
+    <h4>⚠️ UC-04: Stitching Fails Quality Check → Agent Retakes</h4>
+    <p style="color:#0369a1;font-size:9pt;margin-bottom:14px;"><strong>Precondition:</strong> Agent captured frames too quickly, insufficient overlap between frames</p>
+    <div class="uc-step"><div class="step-num">1</div><div class="step-text"><strong>System Action:</strong> Stitching completes but quality score = ⭐ (1/5 stars). RANSAC inlier ratio: 0.23 (below 0.5 threshold). Significant visible seam artifacts detected.</div></div>
+    <div class="uc-step"><div class="step-num">2</div><div class="step-text"><strong>System Action:</strong> Warning card displayed: "⚠️ Low Quality Panorama — Feature matching was poor, likely due to fast movement or insufficient overlap. Visible seams may appear. We strongly recommend retaking this room." Buttons: "Retake" (primary) | "Upload Anyway" (secondary).</div></div>
+    <div class="uc-step"><div class="step-num">3</div><div class="step-text"><strong>Agent Action:</strong> Taps "Retake". App discards current stitch but retains captured raw frames. Agent is taken back to the capture screen to re-capture additional frames to improve coverage.</div></div>
+    <div class="uc-step"><div class="step-num">4</div><div class="step-text"><strong>System Action:</strong> Second stitch with improved frames. Quality score: ⭐⭐⭐⭐ (4/5). Agent approves and uploads.</div></div>
+  </div>
+</div>
+
+<!-- ╔══════════════════════════════════════════╗ -->
+<!-- ║   SECTION 7: UI/UX SPECIFICATION        ║ -->
+<!-- ╚══════════════════════════════════════════╝ -->
+<div class="content page-break" id="s7">
+  <h1 class="section-title"><span class="num">7</span> Screen &amp; UI/UX Specification</h1>
+
+  <h2 class="sub-title">7.1 Screen Flow Diagram</h2>
+  <pre style="color:#94a3b8;">
+[Login Screen]
+      ↓
+[Property Dashboard] ─── Existing Ethred Screens (unchanged)
+      ↓ tap "+ Add 360° Photos"
+[Room Setup Screen]
+  • Property name (read-only)
+  • Room name input field
+  • Start Capture button
+      ↓
+[CAPTURE SCREEN] ←──────────── retake ─────────────────┐
+  • Full-screen CameraX viewfinder                       │
+  • Spherical reticle overlay (28 target dots)           │
+  • Live yaw/pitch/roll display (debug)                  │
+  • Frame counter: X / 28                                │
+  • "Finish Capture" button (enabled after 16 frames)    │
+      ↓ finish                                           │
+[STITCHING PROGRESS SCREEN]                             │
+  • Animated progress bar                                │
+  • Stage labels (Feature detect → Warp → Blend → Fill)  │
+  • Cancel button (with confirmation)                    │
+      ↓ complete                                         │
+[PREVIEW & REVIEW SCREEN] ─────────────────────────────┘
+  • Full-screen 360° interactive viewer (Pannellum WebView)
+  • Quality star rating
+  • Nadir cap selector (3 options)
+  • "Add Another Room" | "Link Rooms" | "Upload Now" buttons
+      ↓ "Link Rooms"
+[TOUR EDITOR SCREEN]
+  • Room list (swipeable)
+  • 360° preview per room with hotspot editing
+  • Add/remove/edit hotspot bottom sheet
+  • "Publish Tour" button
+      ↓
+[UPLOAD PROGRESS SCREEN]
+  • Per-file progress bars
+  • Estimated time remaining
+  • Cancel with confirmation
+      ↓ complete
+[SUCCESS SCREEN]
+  • Animated checkmark
+  • Summary: "3 rooms published to [Property Name]"
+  • "View on Website" deeplink button
+  • "Capture Another Property" button</pre>
+
+  <h2 class="sub-title">7.2 Design System Tokens</h2>
+  <table>
+    <thead><tr><th>Token</th><th>Value</th><th>Usage</th></tr></thead>
+    <tbody>
+      <tr><td>Primary Blue</td><td>#1A56DB</td><td>Buttons, active states, accent elements</td></tr>
+      <tr><td>Capture Blue</td><td>#3B82F6</td><td>Pulsing reticle dot (alignment zone)</td></tr>
+      <tr><td>Success Green</td><td>#16A34A</td><td>Captured dots, success messages</td></tr>
+      <tr><td>Warning Amber</td><td>#D97706</td><td>Low quality warnings</td></tr>
+      <tr><td>Error Red</td><td>#DC2626</td><td>Error states, upload failures</td></tr>
+      <tr><td>Background</td><td>#0F172A</td><td>Capture screen dark overlay</td></tr>
+      <tr><td>Surface</td><td>#1E293B</td><td>Cards, bottom sheets</td></tr>
+      <tr><td>Typography</td><td>Inter / Roboto</td><td>All text elements</td></tr>
+      <tr><td>Border Radius</td><td>12dp (cards), 8dp (buttons)</td><td>Rounded elements</td></tr>
+    </tbody>
+  </table>
+
+  <h2 class="sub-title">7.3 Onboarding First-Launch Tutorial</h2>
+  <p>On first app launch after install, an interactive tutorial MUST walk the user through:</p>
+  <ol>
+    <li><strong>Step 1 — How the reticle works</strong>: Animated GIF/video showing the dots and how they turn green</li>
+    <li><strong>Step 2 — Correct body positioning</strong>: Stand in the center of the room, keep phone vertical</li>
+    <li><strong>Step 3 — Movement speed</strong>: Rotate slowly and steadily — app pauses animation to show "too fast" vs "correct speed"</li>
+    <li><strong>Step 4 — Lighting tips</strong>: Open curtains, turn on all lights for best results</li>
+    <li><strong>Step 5 — "You're ready"</strong>: Tap "Start Capturing" to go to the property selection screen</li>
+  </ol>
+  <p>Tutorial MUST be skippable and re-accessible from the Settings menu at any time.</p>
+</div>
+
+<!-- ╔══════════════════════════════════════════╗ -->
+<!-- ║   SECTION 8: ERROR HANDLING             ║ -->
+<!-- ╚══════════════════════════════════════════╝ -->
+<div class="content page-break" id="s8">
+  <h1 class="section-title"><span class="num">8</span> Error Handling &amp; Edge Cases</h1>
+
+  <table>
+    <thead><tr><th>Error Scenario</th><th>Detection Method</th><th>User-Facing Message</th><th>System Action</th></tr></thead>
+    <tbody>
+      <tr>
+        <td>No hardware gyroscope</td>
+        <td><code>PackageManager.hasSystemFeature(FEATURE_SENSOR_GYROSCOPE)</code> = false</td>
+        <td>"Your device doesn't have a gyroscope. 360° capture is not available."</td>
+        <td>Disable capture button entirely. Show alternative (manual upload option).</td>
+      </tr>
+      <tr>
+        <td>Camera permission denied</td>
+        <td>CameraX returns <code>CameraState.ERROR_CAMERA_IN_USE</code> or permission not granted</td>
+        <td>"Camera access is required. Please grant camera permission in Settings."</td>
+        <td>Show Permission Rationale dialog with deep link to App Settings.</td>
+      </tr>
+      <tr>
+        <td>Stitching fails (too few features)</td>
+        <td>OpenCV stitcher returns <code>Stitcher::ERR_NEED_MORE_IMGS</code> or feature match ratio &lt; 0.15</td>
+        <td>"Not enough overlap between photos. Please retake with slower rotation."</td>
+        <td>Discard stitching result. Retain raw frames. Offer retake.</td>
+      </tr>
+      <tr>
+        <td>Native library crash (OOM)</td>
+        <td>JNI returns error code -1 or app receives SIGKILL</td>
+        <td>"Processing ran out of memory. We'll try a lower resolution."</td>
+        <td>Retry stitching at next lower resolution tier (fallback chain: 8192→4096→2048).</td>
+      </tr>
+      <tr>
+        <td>Insufficient storage</td>
+        <td>Available storage &lt; 500MB before capture starts</td>
+        <td>"Not enough storage. Please free at least 500MB and try again."</td>
+        <td>Block capture start. Show storage usage breakdown.</td>
+      </tr>
+      <tr>
+        <td>Upload authentication failure (401)</td>
+        <td>Backend returns HTTP 401 on upload request</td>
+        <td>"Session expired. Please log in again."</td>
+        <td>Pause upload queue. Open login screen. Resume queue after re-authentication.</td>
+      </tr>
+      <tr>
+        <td>Upload network error (&lt;5 retries)</td>
+        <td>OkHttp throws IOException / backend returns 5xx</td>
+        <td>Silent retry (no user interruption)</td>
+        <td>Exponential backoff: 30s, 60s, 2m, 5m, 10m. Notification on final failure.</td>
+      </tr>
+      <tr>
+        <td>Upload network error (5+ retries)</td>
+        <td>WorkManager marks task FAILED after max retries</td>
+        <td>"Upload failed for [Room Name]. Tap to retry."</td>
+        <td>Show persistent notification with "Retry" action. Mark queue item as FAILED in Room DB.</td>
+      </tr>
+      <tr>
+        <td>Phone rotation during stitching</td>
+        <td>Activity configuration change</td>
+        <td>No interruption — stitching progress shown</td>
+        <td>StitchWorker is decoupled from Activity. Reconnect via WorkManager observation on resume.</td>
+      </tr>
+      <tr>
+        <td>Backend property not found (404)</td>
+        <td>Backend returns HTTP 404 on media attach request</td>
+        <td>"Property not found on server. It may have been deleted."</td>
+        <td>Mark session as orphaned in Room DB. Offer to create new property.</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ╔══════════════════════════════════════════╗ -->
+<!-- ║   SECTION 9: SECURITY                   ║ -->
+<!-- ╚══════════════════════════════════════════╝ -->
+<div class="content page-break" id="s9">
+  <h1 class="section-title"><span class="num">9</span> Security Requirements</h1>
+
+  <div class="req-card">
+    <div class="req-id">SEC-01</div>
+    <div class="req-title">Secure Token Storage</div>
+    <div class="req-desc">The JWT access token MUST be stored in <code>EncryptedSharedPreferences</code> using <code>MasterKey.Builder</code> with AES-256-GCM encryption backed by Android Keystore. The token MUST NEVER be stored in plain SharedPreferences, plain text files, or the Room database.</div>
+  </div>
+
+  <div class="req-card">
+    <div class="req-id">SEC-02</div>
+    <div class="req-title">Certificate Pinning</div>
+    <div class="req-desc">All HTTPS network calls to the Ethred backend MUST use OkHttp's <code>CertificatePinner</code> with the backend server's SSL certificate SHA-256 hash pinned. This prevents man-in-the-middle (MITM) attacks on the uploaded photo data.</div>
+  </div>
+
+  <div class="req-card">
+    <div class="req-id">SEC-03</div>
+    <div class="req-title">No Cloud Key Management for Free Services</div>
+    <div class="req-desc">As all processing is on-device and free, no API keys, external AI/cloud service keys, or third-party service credentials are stored or transmitted. The only credentials handled are user JWT tokens from the existing Ethred auth service.</div>
+  </div>
+
+  <div class="req-card">
+    <div class="req-id">SEC-04</div>
+    <div class="req-title">Local File Privacy</div>
+    <div class="req-desc">Captured frames and stitched panoramas MUST be stored in the app's internal storage directory (<code>context.filesDir</code>), which is not accessible to other apps or the Android media gallery without explicit user share action. The <code>android:sharedUserId</code> attribute MUST NOT be used.</div>
+  </div>
+
+  <div class="req-card">
+    <div class="req-id">SEC-05</div>
+    <div class="req-title">ProGuard / R8 Obfuscation</div>
+    <div class="req-desc">Release builds MUST enable R8 code shrinking and obfuscation to protect business logic. Native C++ code is inherently binary-only. ProGuard rules MUST be configured to preserve Room DB, Retrofit interfaces, and Hilt DI entry points.</div>
+  </div>
+</div>
+
+<!-- ╔══════════════════════════════════════════╗ -->
+<!-- ║   SECTION 10: TESTING STRATEGY          ║ -->
+<!-- ╚══════════════════════════════════════════╝ -->
+<div class="content" id="s10">
+  <h1 class="section-title"><span class="num">10</span> Testing Strategy</h1>
+
+  <h2 class="sub-title">10.1 Unit Tests (JUnit5 + MockK)</h2>
+  <table>
+    <thead><tr><th>Component</th><th>Test Cases</th></tr></thead>
+    <tbody>
+      <tr><td><code>SensorOrientationProcessor</code></td><td>Low-pass filter correctness; alignment tolerance calculation; yaw wrap-around at 359°→0°</td></tr>
+      <tr><td><code>CaptureGridManager</code></td><td>Correct generation of 28 target dot positions; duplicate detection logic</td></tr>
+      <tr><td><code>ManifestGenerator</code></td><td>Valid JSON output for 1/2/5 rooms; hotspot serialization; missing rooms graceful handling</td></tr>
+      <tr><td><code>UploadQueueRepository</code></td><td>Queue insertion; retry count increment; status transitions; cleanup after success</td></tr>
+      <tr><td><code>AuthInterceptor</code></td><td>Token injection; 401 handling; token refresh flow</td></tr>
+    </tbody>
+  </table>
+
+  <h2 class="sub-title">10.2 Instrumentation Tests (Espresso / UIAutomator)</h2>
+  <ul>
+    <li>End-to-end capture flow using a mock sensor feed (inject simulated rotation events via <code>SensorManager.injectSensorData</code>)</li>
+    <li>WorkManager upload test using <code>TestWorkManagerFactory</code> to validate queue processing logic</li>
+    <li>Room DB migration tests for schema version upgrades</li>
+    <li>WebView Pannellum.js preview load test on real device</li>
+  </ul>
+
+  <h2 class="sub-title">10.3 Native C++ Unit Tests (Google Test Framework)</h2>
+  <ul>
+    <li>Feature detection returns non-empty keypoints for known test images</li>
+    <li>Spherical warp produces correct output dimensions for given focal length</li>
+    <li>Inpainting masks produce visually coherent fills on synthetic test images</li>
+    <li>EXIF XMP metadata is correctly embedded in output JPEG</li>
+    <li>Memory leak detection run via Valgrind/ASan on x86_64 emulator</li>
+  </ul>
+
+  <h2 class="sub-title">10.4 Device Compatibility Matrix</h2>
+  <table>
+    <thead><tr><th>Device</th><th>Chip</th><th>RAM</th><th>Android</th><th>Test Status</th></tr></thead>
+    <tbody>
+      <tr><td>Samsung Galaxy A54</td><td>Exynos 1380</td><td>8GB</td><td>Android 13</td><td><span class="badge required">REQUIRED</span></td></tr>
+      <tr><td>Xiaomi Redmi Note 12</td><td>Snapdragon 4 Gen 1</td><td>4GB</td><td>Android 12</td><td><span class="badge required">REQUIRED</span></td></tr>
+      <tr><td>Tecno Spark 10</td><td>MediaTek Helio G88</td><td>4GB</td><td>Android 12</td><td><span class="badge required">REQUIRED</span></td></tr>
+      <tr><td>Google Pixel 7a</td><td>Google Tensor G2</td><td>8GB</td><td>Android 14</td><td><span class="badge required">REQUIRED</span></td></tr>
+      <tr><td>Samsung Galaxy S23</td><td>Snapdragon 8 Gen 2</td><td>8GB</td><td>Android 13</td><td><span class="badge optional">OPTIONAL</span></td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout info"><strong>Note on Ethiopian Device Market.</strong> The primary target users are Ethiopian real estate agents. Common devices in the Addis Ababa market include Tecno, Infinix, and Samsung mid-range devices. The Tecno Spark 10 and Samsung Galaxy A54 MUST be prioritized for testing as representative low-to-mid range Ethiopian market devices. These typically have 4–8GB RAM and Helio G88 / Exynos 1380 chips.</div>
+</div>
+
+<!-- ╔══════════════════════════════════════════╗ -->
+<!-- ║   SECTION 11: DEVELOPER PROMPT          ║ -->
+<!-- ╚══════════════════════════════════════════╝ -->
+<div class="content page-break" id="s11">
+  <h1 class="section-title"><span class="num">11</span> Developer Implementation Prompt</h1>
+  <p>Use the following prompt verbatim when delegating development of this Android application to an AI coding assistant (such as Claude, GPT-4o, or Gemini) or when onboarding a new Android developer:</p>
+
+  <pre style="white-space: pre-wrap; font-size: 8.5pt; line-height: 1.7;">
+You are an expert Android developer specializing in Kotlin, Jetpack Compose, 
+CameraX, and native C++ (NDK/JNI) development. Build a production-ready 
+Android application called "Ethred 360° Capture" with minSdk 24, targetSdk 35.
+
+═══════════════════════════════════════════════════
+PURPOSE
+═══════════════════════════════════════════════════
+Enable real estate agents to:
+1. Capture 360° equirectangular panoramas using their phone camera, 
+   guided by gyroscope sensor AR overlays
+2. Stitch photos on-device using native OpenCV 4.8 (C++ via Android NDK)
+3. Fill ceiling (zenith) and floor (nadir) gaps using cv::inpaint
+4. Link multiple rooms into a virtual tour with interactive hotspots
+5. Upload finished panoramas to the Ethred Backend API (Node.js/Prisma)
+   WITHOUT modifying the existing backend DB schema
+
+═══════════════════════════════════════════════════
+CAPTURE SYSTEM
+═══════════════════════════════════════════════════
+- Use Android SensorManager (TYPE_ROTATION_VECTOR) for 3-axis orientation
+- Display a spherical reticle overlay on the CameraX viewfinder with 28 
+  target dots: 8 at +30° pitch, 12 at 0° pitch, 8 at -30° pitch
+- Auto-capture via CameraX ImageCapture when orientation is within ±2° 
+  of a target dot for 300ms with AE state CONVERGED
+- Lock White Balance and Exposure after first frame to ensure consistency
+- Haptic + shutter animation on each frame capture
+- Progress counter: X/28 frames captured
+- Allow early finish at 16+ frames with user confirmation
+
+═══════════════════════════════════════════════════
+STITCHING PIPELINE (Native C++ / OpenCV NDK)
+═══════════════════════════════════════════════════
+JNI Bridge class: com.ethred.panorama.stitching.NativeStitcher
+Native library: libstitcher.so (arm64-v8a + armeabi-v7a)
+
+Pipeline steps:
+1. Decode frames to cv::Mat, downsample to 1920x1440 for feature detection
+2. AKAZE feature detection (fallback: ORB for <3GB RAM devices)
+3. FLANN-based matching with Lowe's ratio test 0.75
+4. RANSAC homography estimation (threshold: 4.0 px)
+5. cv::detail::SphericalWarper (focal length from EXIF or device table)
+6. cv::detail::BlocksGainCompensator (block_size=32)
+7. cv::detail::GraphCutSeamFinder (COST_COLOR_GRAD)
+8. cv::detail::MultiBandBlender (num_bands=5)
+9. Output at 4096x2048 (mid-range) or 8192x4096 (high-end, >6GB RAM)
+10. cv::inpaint zenith + nadir missing regions (INPAINT_NS method)
+11. Optional: Nadir logo cap overlay from agency branding settings
+12. Embed GPano XMP EXIF metadata into output JPEG
+13. Generate 512x256 thumbnail for property gallery
+
+Quality score (1-5 stars) based on:
+- RANSAC inlier ratio (higher = better)
+- % inpainted area (lower = better)
+- Feature match count (higher = better)
+
+If quality score ≤ 2: show prominent retake warning
+
+═══════════════════════════════════════════════════
+MULTI-ROOM TOUR BUILDER
+═══════════════════════════════════════════════════
+- Users can capture up to 20 rooms per property session
+- After stitching, show interactive 360° preview via Pannellum.js 
+  in a WebView loading from local file:// path
+- Long-press on 360° preview → drop hotspot → select target room
+  → record pitch/yaw coordinates
+- Generate tour_manifest.json (see schema below) on "Publish Tour"
+- Upload manifest as DOCUMENT type media to backend
+
+tour_manifest.json schema:
+{
+  "version": "1.0",
+  "property_id": "uuid",
+  "default_scene": "scene_id_string",
+  "scenes": [
+    {
+      "id": "scene_living_room",
+      "name": "Living Room",
+      "file_url": "https://backend.com/uploads/living_room_360.jpg",
+      "thumbnail_url": "https://backend.com/uploads/living_room_thumb.jpg",
+      "hotspots": [
+        {
+          "id": "hs_uuid",
+          "pitch": -5.2,
+          "yaw": 112.5,
+          "text": "Go to Kitchen",
+          "target_scene_id": "scene_kitchen"
+        }
+      ]
+    }
+  ]
+}
+
+═══════════════════════════════════════════════════
+BACKEND API INTEGRATION (ethred-backend — NO SCHEMA CHANGES)
+═══════════════════════════════════════════════════
+Base URL: https://ethred-backend.onrender.com/api/v1
+
+1. Auth: POST /auth/login → { email, password } → store JWT in EncryptedSharedPreferences
+2. Upload file: POST /upload (multipart/form-data, field: "file") → { file_url }
+3. Attach media to property: POST /properties/{id}/media → 
+   { file_url, media_category: "IMAGE"|"DOCUMENT", sort_order: int }
+
+WorkManager UploadWorker:
+- Constraint: NetworkType.CONNECTED
+- Retry: exponential backoff (30s, 1m, 2m, 5m, 10m max)
+- Show persistent notification with progress bar
+- Delete raw frames after successful upload
+- Keep stitched panorama locally for offline preview
+
+Existing Prisma model used (no changes):
+model PropertyMedia {
+  id             String    @id @default(uuid())
+  property_id    String
+  file_url       String
+  media_category MediaType  // IMAGE | VIDEO | DOCUMENT
+  sort_order     Int
+}
+
+═══════════════════════════════════════════════════
+LOCAL ROOM DATABASE SCHEMA
+═══════════════════════════════════════════════════
+Tables: capture_sessions, captured_frames, hotspots, upload_queue
+(Full schema documented in SRS Section 3.2)
+
+═══════════════════════════════════════════════════
+ARCHITECTURE
+═══════════════════════════════════════════════════
+Pattern: MVVM + Clean Architecture
+- presentation layer: Jetpack Compose + ViewModels
+- domain layer: UseCases (pure Kotlin, no Android deps)
+- data layer: Repositories (Room DB + Retrofit API)
+- native layer: C++ OpenCV stitcher via JNI
+
+DI: Hilt
+Async: Kotlin Coroutines + StateFlow
+Image loading: Coil
+
+═══════════════════════════════════════════════════
+COMPATIBILITY
+═══════════════════════════════════════════════════
+- minSdk: 24 (Android 7.0)
+- targetSdk: 35 (Android 15)
+- ABI: arm64-v8a (primary), armeabi-v7a (fallback)
+- Required: Hardware gyroscope (FEATURE_SENSOR_GYROSCOPE)
+- Min RAM: 3GB
+- Languages: English (en), Amharic (am)
+
+═══════════════════════════════════════════════════
+UI DESIGN
+═══════════════════════════════════════════════════
+- Material Design 3, dark theme for capture screens
+- Capture reticle: dark overlay with glowing target dots
+  (gray=uncaptured, blue pulsing=in zone, green check=captured)
+- First-launch onboarding tutorial (5 steps, skippable)
+- All text in strings.xml (no hardcoded strings)
+
+═══════════════════════════════════════════════════
+TESTING
+═══════════════════════════════════════════════════
+- Unit tests: JUnit5 + MockK for all UseCases and Repositories
+- Instrumentation: Espresso for UI flows
+- Native: Google Test for C++ stitching pipeline
+- Memory leak detection: LeakCanary
+- Crash tracking: Firebase Crashlytics (free tier)
+  </pre>
+</div>
+
+</body>
+</html>
