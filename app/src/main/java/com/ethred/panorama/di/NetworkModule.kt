@@ -32,10 +32,12 @@ object NetworkModule {
      * Update these values in the gradle.properties / secrets file and inject via BuildConfig.
      */
     private val certificatePinner = CertificatePinner.Builder()
-        // Primary pin — replace with real SHA-256 fingerprint from server cert
-        .add(API_HOST, "sha256/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=")
-        // Backup rotation pin — replace with backup cert SHA-256 fingerprint
-        .add(API_HOST, "sha256/BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=")
+        // Primary pin — live leaf cert for CN=onrender.com (fetched 2026-07-23)
+        // Render.com rotates leaf certs every ~90 days — update this when it expires.
+        .add(API_HOST, "sha256/svZQ+GWVBhyE3yjb5e+PnpdDsH4n9mfjjx4Alk3gH5o=")
+        // Backup pin — Google Trust Services WE1 intermediate CA (stable, long-lived)
+        // This pin will survive leaf cert rotation so the app keeps working after renewal.
+        .add(API_HOST, "sha256/oof/q3Ysxpom1IIDft9wH2U86JkCXGKn5cuIu5tBnLs=")
         .build()
 
     @Provides
