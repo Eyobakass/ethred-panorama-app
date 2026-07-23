@@ -73,6 +73,8 @@ androidx-exifinterface = { group = "androidx.exifinterface", name = "exifinterfa
 
 # Testing
 junit = { group = "junit", name = "junit", version.ref = "junit" }
+mockito-core = { group = "org.mockito", name = "mockito-core", version = "5.8.0" }
+mockito-inline = { group = "org.mockito", name = "mockito-inline", version = "5.2.0" }
 androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "junitVersion" }
 androidx-espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espressoCore" }
 
