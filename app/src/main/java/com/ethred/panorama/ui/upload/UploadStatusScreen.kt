@@ -21,7 +21,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.work.BackoffPolicy
 import androidx.work.Constraints
+import androidx.work.ExistingWorkPolicy
 import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
@@ -29,6 +31,7 @@ import com.ethred.panorama.data.local.db.UploadQueueEntity
 import com.ethred.panorama.data.repository.UploadQueueRepository
 import com.ethred.panorama.worker.UploadWorker
 import kotlinx.coroutines.launch
+import java.util.concurrent.TimeUnit
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -44,15 +47,28 @@ fun UploadStatusScreen(
     var queueItems by remember { mutableStateOf<List<UploadQueueEntity>>(emptyList()) }
 
     LaunchedEffect(propertyId) {
+        // FR-SYNC-01: Exponential backoff starting at 30s, max 5 retries
         val uploadRequest = OneTimeWorkRequestBuilder<UploadWorker>()
             .setConstraints(
                 Constraints.Builder()
                     .setRequiredNetworkType(NetworkType.CONNECTED)
+                    .setRequiresCharging(false)
                     .build()
             )
+            .setBackoffCriteria(
+                BackoffPolicy.EXPONENTIAL,
+                30L,
+                TimeUnit.SECONDS
+            )
+            .addTag("ethred_upload_$propertyId")
             .build()
 
-        workManager.enqueue(uploadRequest)
+        // enqueueUniqueWork prevents duplicate workers for the same property
+        workManager.enqueueUniqueWork(
+            "upload_$propertyId",
+            ExistingWorkPolicy.KEEP,
+            uploadRequest
+        )
 
         uploadQueueRepository.getQueueForProperty(propertyId).collect { list ->
             queueItems = list

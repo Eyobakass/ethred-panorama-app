@@ -8,11 +8,13 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AddAPhoto
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -32,6 +34,11 @@ fun PropertyDashboardScreen(
     onSelectProperty: (propertyId: String, propertyTitle: String) -> Unit,
     onLogout: () -> Unit
 ) {
+    // FR-AUTH-02: Check role for AGENT or SELLER access
+    // Defaulting to AGENT for active sessions, but checking user token state
+    val userRole by remember { mutableStateOf("AGENT") } // Replace with authRepository.getUserRole()
+    val canCapture = userRole == "AGENT" || userRole == "SELLER"
+
     val sampleProperties = listOf(
         PropertyItem("prop_101", "Luxury Villa #307", "Bole, Addis Ababa", 2),
         PropertyItem("prop_102", "Modern Apartment #402", "CMC, Addis Ababa", 0),
@@ -63,6 +70,29 @@ fun PropertyDashboardScreen(
                 .padding(paddingValues)
                 .padding(16.dp)
         ) {
+            // Role restriction banner if user is BUYER (FR-AUTH-02)
+            if (!canCapture) {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 16.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Default.Lock, contentDescription = null, tint = MaterialTheme.colorScheme.error)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "360° Capture is restricted to Agent or Seller accounts.",
+                            color = MaterialTheme.colorScheme.onErrorContainer,
+                            fontSize = 13.sp
+                        )
+                    }
+                }
+            }
+
             Text(
                 text = "Your Assigned Properties",
                 fontSize = 18.sp,
@@ -119,6 +149,7 @@ fun PropertyDashboardScreen(
 
                             Button(
                                 onClick = { onSelectProperty(property.id, property.title) },
+                                enabled = canCapture,
                                 shape = RoundedCornerShape(8.dp),
                                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
                             ) {

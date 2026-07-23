@@ -9,18 +9,34 @@
     <style>
         html, body { width: 100%; height: 100%; margin: 0; padding: 0; background: #0f172a; overflow: hidden; }
         #panorama { width: 100%; height: 100%; }
+
+        /* Custom animated pulsing hotspot icon per FR-TOUR-02 */
         .custom-hotspot {
-            height: 36px; width: 36px;
+            height: 38px; width: 38px;
             background: #1a56db;
             border: 2px solid #ffffff;
             border-radius: 50%;
             cursor: pointer;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+            box-shadow: 0 0 0 0 rgba(26, 86, 219, 0.7);
+            animation: pulse-blue 2s infinite;
             display: flex; align-items: center; justify-content: center;
             color: #ffffff; font-size: 18px; font-weight: bold;
-            transition: transform 0.2s;
         }
-        .custom-hotspot:hover { transform: scale(1.2); background: #0ea5e9; }
+
+        @keyframes pulse-blue {
+            0% {
+                transform: scale(0.95);
+                box-shadow: 0 0 0 0 rgba(26, 86, 219, 0.7);
+            }
+            70% {
+                transform: scale(1.1);
+                box-shadow: 0 0 0 14px rgba(26, 86, 219, 0);
+            }
+            100% {
+                transform: scale(0.95);
+                box-shadow: 0 0 0 0 rgba(26, 86, 219, 0);
+            }
+        }
     </style>
 </head>
 <body>
@@ -29,6 +45,8 @@
 
 <script>
     var viewer = null;
+    var pressTimer = null;
+    var startX = 0, startY = 0;
 
     function loadPanorama(imageUrl) {
         if (viewer) { viewer.destroy(); }
@@ -37,15 +55,47 @@
             "panorama": imageUrl,
             "autoLoad": true,
             "showControls": true,
-            "compass": true
+            "compass": true,
+            "friction": 0.15
         });
 
-        viewer.on('mouseup', function(event) {
-            var coords = viewer.canvasToFinalPitchYaw(event);
-            if (window.AndroidBridge && window.AndroidBridge.onPanoramaLongPress) {
-                window.AndroidBridge.onPanoramaLongPress(coords[0], coords[1]);
+        var container = document.getElementById('panorama');
+
+        // Long press detection threshold 400ms per FR-TOUR-02
+        container.addEventListener('mousedown', startPress);
+        container.addEventListener('touchstart', startPress);
+
+        container.addEventListener('mouseup', cancelPress);
+        container.addEventListener('touchend', cancelPress);
+        container.addEventListener('mousemove', checkMove);
+        container.addEventListener('touchmove', checkMove);
+
+        function startPress(e) {
+            var clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            var clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            startX = clientX; startY = clientY;
+
+            pressTimer = setTimeout(function() {
+                if (viewer) {
+                    var coords = viewer.canvasToFinalPitchYaw(e);
+                    if (coords && window.AndroidBridge && window.AndroidBridge.onPanoramaLongPress) {
+                        window.AndroidBridge.onPanoramaLongPress(coords[0], coords[1]);
+                    }
+                }
+            }, 400);
+        }
+
+        function cancelPress() {
+            if (pressTimer) clearTimeout(pressTimer);
+        }
+
+        function checkMove(e) {
+            var clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            var clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            if (Math.abs(clientX - startX) > 10 || Math.abs(clientY - startY) > 10) {
+                cancelPress();
             }
-        });
+        }
     }
 
     function addHotspot(id, pitch, yaw, title, targetSceneId) {
@@ -56,6 +106,7 @@
             "yaw": yaw,
             "type": "info",
             "text": title,
+            "cssClass": "custom-hotspot",
             "createTooltipArgs": targetSceneId,
             "clickHandlerFunc": function(evt, args) {
                 if (window.AndroidBridge && window.AndroidBridge.onHotspotClicked) {

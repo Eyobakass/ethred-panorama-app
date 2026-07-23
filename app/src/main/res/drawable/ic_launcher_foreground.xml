@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Adaptive launcher icon foreground -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Outer circle (dark background) -->
+    <path
+        android:pathData="M54,54m-54,0a54,54 0,1 1,108 0a54,54 0,1 1,-108 0"
+        android:fillColor="#1A56DB" />
+    <!-- 360° panorama sphere symbol -->
+    <path
+        android:pathData="M54,22 C36.3,22 22,36.3 22,54 C22,71.7 36.3,86 54,86 C71.7,86 86,71.7 86,54 C86,36.3 71.7,22 54,22z M54,30 C67.3,30 78,40.7 78,54 C78,67.3 67.3,78 54,78 C40.7,78 30,67.3 30,54 C30,40.7 40.7,30 54,30z"
+        android:fillColor="#FFFFFF" />
+    <!-- Camera lens dot in center -->
+    <path
+        android:pathData="M54,47 C50.1,47 47,50.1 47,54 C47,57.9 50.1,61 54,61 C57.9,61 61,57.9 61,54 C61,50.1 57.9,47 54,47z"
+        android:fillColor="#60A5FA" />
+    <!-- Top meridian line -->
+    <path
+        android:pathData="M54,22 L54,86"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="2"
+        android:strokeAlpha="0.4" />
+    <!-- Equator line -->
+    <path
+        android:pathData="M22,54 L86,54"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="2"
+        android:strokeAlpha="0.4" />
+</vector>

@@ -3,6 +3,7 @@ package com.ethred.panorama.ui.tour
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
@@ -11,6 +12,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AddLocation
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Publish
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -22,6 +24,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.ethred.panorama.data.local.db.CaptureSessionEntity
+import com.ethred.panorama.data.local.db.HotspotEntity
 import com.ethred.panorama.data.repository.CaptureSessionRepository
 import com.ethred.panorama.data.repository.UploadQueueRepository
 import com.ethred.panorama.domain.usecase.GenerateTourManifestUseCase
@@ -52,10 +55,10 @@ fun TourEditorScreen(
 
     var sessions by remember { mutableStateOf<List<CaptureSessionEntity>>(emptyList()) }
     var selectedSession by remember { mutableStateOf<CaptureSessionEntity?>(null) }
+    var currentHotspots by remember { mutableStateOf<List<HotspotEntity>>(emptyList()) }
     var showBottomSheet by remember { mutableStateOf(false) }
     var clickedPitch by remember { mutableFloatStateOf(0f) }
     var clickedYaw by remember { mutableFloatStateOf(0f) }
-    var targetRoomSessionId by remember { mutableStateOf("") }
 
     LaunchedEffect(propertyId) {
         sessionRepository.getSessionsForProperty(propertyId).collect { list ->
@@ -63,6 +66,12 @@ fun TourEditorScreen(
             if (selectedSession == null && list.isNotEmpty()) {
                 selectedSession = list.first()
             }
+        }
+    }
+
+    LaunchedEffect(selectedSession) {
+        selectedSession?.let { session ->
+            currentHotspots = sessionRepository.getHotspots(session.id)
         }
     }
 
@@ -118,9 +127,14 @@ fun TourEditorScreen(
 
                                 addJavascriptInterface(
                                     AndroidHotspotBridge { pitch, yaw ->
-                                        clickedPitch = pitch
-                                        clickedYaw = yaw
-                                        showBottomSheet = true
+                                        // FR-TOUR-02: Maximum 5 hotspots per room limit check
+                                        if (currentHotspots.size >= 5) {
+                                            Toast.makeText(context, "Maximum 5 hotspots per room allowed.", Toast.LENGTH_SHORT).show()
+                                        } else {
+                                            clickedPitch = pitch
+                                            clickedYaw = yaw
+                                            showBottomSheet = true
+                                        }
                                     },
                                     "AndroidBridge"
                                 )
@@ -139,7 +153,7 @@ fun TourEditorScreen(
                 }
             }
 
-            // Publish Tour Button Bar
+            // Bottom Bar: Hotspot count + Publish Button
             Surface(
                 modifier = Modifier.fillMaxWidth(),
                 color = MaterialTheme.colorScheme.surface
@@ -151,7 +165,11 @@ fun TourEditorScreen(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("Tap scene to drop hotspot link", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f))
+                    Text(
+                        "Hotspots: ${currentHotspots.size}/5 (Long-press scene)",
+                        fontSize = 13.sp,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
+                    )
 
                     Button(
                         onClick = {
@@ -207,6 +225,7 @@ fun TourEditorScreen(
                                         yaw = clickedYaw,
                                         label = "Go to ${targetSession.roomName}"
                                     )
+                                    currentHotspots = sessionRepository.getHotspots(currentSession.id)
                                     showBottomSheet = false
                                 }
                             },

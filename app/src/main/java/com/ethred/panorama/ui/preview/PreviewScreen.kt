@@ -186,11 +186,10 @@ fun PreviewScreen(
                             onClick = {
                                 coroutineScope.launch {
                                     currentSession.outputPath?.let { path ->
-                                        uploadQueueRepository.enqueueUpload(
+                                        uploadQueueRepository.enqueuePanoramaWithThumbnail(
                                             sessionId = currentSession.id,
                                             propertyId = currentSession.propertyId,
-                                            localFilePath = path,
-                                            mediaCategory = "IMAGE",
+                                            panoramaFilePath = path,
                                             sortOrder = 1
                                         )
                                         onUploadNow()

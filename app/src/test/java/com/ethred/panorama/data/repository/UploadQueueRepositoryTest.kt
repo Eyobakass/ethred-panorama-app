@@ -23,15 +23,17 @@ class UploadQueueRepositoryTest {
     @get:Rule
     val tempFolder = TemporaryFolder()
 
+    private lateinit var mockContext: android.content.Context
     private lateinit var mockDao: UploadQueueDao
     private lateinit var mockApi: EthredApiService
     private lateinit var repository: UploadQueueRepository
 
     @Before
     fun setUp() {
+        mockContext = mock(android.content.Context::class.java)
         mockDao = mock(UploadQueueDao::class.java)
         mockApi = mock(EthredApiService::class.java)
-        repository = UploadQueueRepository(mockDao, mockApi)
+        repository = UploadQueueRepository(mockContext, mockDao, mockApi)
     }
 
     @Test
