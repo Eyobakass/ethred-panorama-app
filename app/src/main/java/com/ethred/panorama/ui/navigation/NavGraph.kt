@@ -150,11 +150,11 @@ fun AppNavGraph(
                 onAddAnotherRoom = {
                     navController.popBackStack(Screen.Dashboard.route, inclusive = false)
                 },
-                onLinkRooms = {
-                    navController.navigate(Screen.TourEditor.createRoute("prop_101"))
+                onLinkRooms = { propertyId ->
+                    navController.navigate(Screen.TourEditor.createRoute(propertyId))
                 },
-                onUploadNow = {
-                    navController.navigate(Screen.UploadStatus.createRoute("prop_101"))
+                onUploadNow = { propertyId ->
+                    navController.navigate(Screen.UploadStatus.createRoute(propertyId))
                 }
             )
         }

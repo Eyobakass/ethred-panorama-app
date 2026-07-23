@@ -36,8 +36,8 @@ fun PreviewScreen(
     uploadQueueRepository: UploadQueueRepository,
     onRetake: () -> Unit,
     onAddAnotherRoom: () -> Unit,
-    onLinkRooms: () -> Unit,
-    onUploadNow: () -> Unit
+    onLinkRooms: (propertyId: String) -> Unit,
+    onUploadNow: (propertyId: String) -> Unit
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
@@ -192,7 +192,7 @@ fun PreviewScreen(
                                             panoramaFilePath = path,
                                             sortOrder = 1
                                         )
-                                        onUploadNow()
+                                        onUploadNow(currentSession.propertyId)
                                     }
                                 }
                             },
