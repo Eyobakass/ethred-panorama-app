@@ -252,6 +252,7 @@ Java_com_ethred_panorama_stitching_NativeStitcher_nativeStitchFrames(
     cv::Ptr<cv::Stitcher> stitcher = cv::Stitcher::create(cv::Stitcher::PANORAMA);
 
     // Configure explicit detail pipeline components per SRS §2.3
+    stitcher->setPanoConfidenceThresh(0.3f);
     // BlocksGainCompensator block_size=32 as per FR-STITCH-03
     stitcher->setExposureCompensator(
         cv::makePtr<cv::detail::BlocksGainCompensator>(32)
@@ -264,7 +265,7 @@ Java_com_ethred_panorama_stitching_NativeStitcher_nativeStitchFrames(
     stitcher->setBlender(cv::makePtr<cv::detail::MultiBandBlender>(false, 5));
 
     cv::Mat panorama;
-    cv::Stitcher::Status status = stitcher->stitch(fullResMats, panorama);
+    cv::Stitcher::Status status = stitcher->stitch(featureMats, panorama);
 
     if (status != cv::Stitcher::OK) {
         LOGE("Stitcher failed status=%d", (int)status);

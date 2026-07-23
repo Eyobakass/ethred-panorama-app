@@ -49,14 +49,22 @@ fun CaptureScreen(
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
 
-    val orientation by viewModel.orientationFlow.collectAsState()
-    val dots by viewModel.dotsFlow.collectAsState()
+    var hasCameraPermission by remember {
+        mutableStateOf(
+            ContextCompat.checkSelfPermission(context, android.Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
+        )
+    }
 
-    var imageCapture: ImageCapture? by remember { mutableStateOf(null) }
-    var cameraControl: CameraControl? by remember { mutableStateOf(null) }
-    var isShutterFlashing by remember { mutableStateOf(false) }
-    var firstFrameCaptured by remember { mutableStateOf(false) }
-    val gyroMissingDialog = remember { !viewModel.sensorProcessor.isGyroscopeAvailable() }
+    val permissionLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        contract = androidx.activity.result.contract.ActivityResultContracts.RequestPermission(),
+        onResult = { granted -> hasCameraPermission = granted }
+    )
+
+    LaunchedEffect(Unit) {
+        if (!hasCameraPermission) {
+            permissionLauncher.launch(android.Manifest.permission.CAMERA)
+        }
+    }
 
     // Animated pulse scale for IN_ALIGNMENT dots
     val pulseAnim = rememberInfiniteTransition(label = "dot_pulse")
@@ -147,20 +155,22 @@ fun CaptureScreen(
                         ViewGroup.LayoutParams.MATCH_PARENT,
                         ViewGroup.LayoutParams.MATCH_PARENT
                     )
-                    implementationMode = PreviewView.ImplementationMode.PERFORMANCE
+                    scaleType = PreviewView.ScaleType.FILL_CENTER
                 }
                 val cameraProviderFuture = ProcessCameraProvider.getInstance(ctx)
                 cameraProviderFuture.addListener({
                     val cameraProvider = cameraProviderFuture.get()
 
-                    val preview = Preview.Builder().build().also {
-                        it.setSurfaceProvider(previewView.surfaceProvider)
-                    }
+                    val preview = Preview.Builder()
+                        .setTargetAspectRatio(AspectRatio.RATIO_4_3)
+                        .build().also {
+                            it.setSurfaceProvider(previewView.surfaceProvider)
+                        }
 
-                    // FR-CAP-04: JPEG quality 95, flash off, minimise latency
+                    // FR-CAP-04: JPEG quality 95, flash off, minimise latency, 4:3 aspect ratio
                     imageCapture = ImageCapture.Builder()
                         .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
-                        .setTargetResolution(Size(3264, 2448))  // ~8MP minimum per SRS
+                        .setTargetAspectRatio(AspectRatio.RATIO_4_3)
                         .setJpegQuality(95)
                         .setFlashMode(ImageCapture.FLASH_MODE_OFF)
                         .build()
@@ -177,7 +187,9 @@ fun CaptureScreen(
                         // FR-CAP-04: Lock zoom at 1.0× (no optical zoom)
                         camera.cameraControl.setLinearZoom(0f)
 
-                    } catch (e: Exception) { }
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
                 }, ContextCompat.getMainExecutor(ctx))
                 previewView
             },

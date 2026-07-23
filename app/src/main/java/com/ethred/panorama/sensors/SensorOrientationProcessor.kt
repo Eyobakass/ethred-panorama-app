@@ -55,8 +55,17 @@ class SensorOrientationProcessor @Inject constructor(
         val rotationMatrix = FloatArray(9)
         SensorManager.getRotationMatrixFromVector(rotationMatrix, event.values)
 
+        // Remap coordinates for Portrait mode (X = X, Y = Z)
+        val remappedMatrix = FloatArray(9)
+        SensorManager.remapCoordinateSystem(
+            rotationMatrix,
+            SensorManager.AXIS_X,
+            SensorManager.AXIS_Z,
+            remappedMatrix
+        )
+
         val orientationAngles = FloatArray(3)
-        SensorManager.getOrientation(rotationMatrix, orientationAngles)
+        SensorManager.getOrientation(remappedMatrix, orientationAngles)
 
         // Convert radians to degrees
         var rawYaw = (Math.toDegrees(orientationAngles[0].toDouble()).toFloat() + 360f) % 360f
