@@ -8,6 +8,7 @@ plugins {
 android {
     namespace = "com.ethred.panorama"
     compileSdk = 35
+    ndkVersion = "25.2.9519653"
 
     defaultConfig {
         applicationId = "com.ethred.panorama"
