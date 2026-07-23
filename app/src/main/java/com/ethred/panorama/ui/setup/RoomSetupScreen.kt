@@ -85,6 +85,7 @@ fun RoomSetupScreen(
 
                 Spacer(modifier = Modifier.height(8.dp))
 
+                @OptIn(ExperimentalLayoutApi::class)
                 FlowRow(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)

@@ -35,7 +35,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import com.ethred.panorama.sensors.TargetDot
-import hardware.camera2.CaptureRequest
+import android.hardware.camera2.CaptureRequest
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Locale

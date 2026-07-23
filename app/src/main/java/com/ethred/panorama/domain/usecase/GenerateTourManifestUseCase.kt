@@ -47,8 +47,8 @@ class GenerateTourManifestUseCase @Inject constructor(
                     SceneDto(
                         id = "scene_${session.id}",
                         name = session.roomName,
-                        file_url = session.outputPath ?: "",
-                        thumbnail_url = session.outputPath,
+                        fileUrl = session.outputPath ?: "",
+                        thumbnailUrl = session.outputPath,
                         hotspots = hotspotDtos
                     )
                 )
