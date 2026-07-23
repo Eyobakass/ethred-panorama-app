@@ -55,7 +55,8 @@ fun AppNavGraph(
     generateTourManifestUseCase: GenerateTourManifestUseCase,
     workManager: WorkManager
 ) {
-    val startDestination = if (authRepository.isLoggedIn()) Screen.Dashboard.route else Screen.Onboarding.route
+    // Bypass login for direct functional testing as requested by user
+    val startDestination = Screen.Dashboard.route
 
     NavHost(
         navController = navController,

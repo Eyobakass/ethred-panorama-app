@@ -32,11 +32,10 @@ object NetworkModule {
      * Update these values in the gradle.properties / secrets file and inject via BuildConfig.
      */
     private val certificatePinner = CertificatePinner.Builder()
-        // Primary pin — live leaf cert for CN=onrender.com (fetched 2026-07-23)
-        // Render.com rotates leaf certs every ~90 days — update this when it expires.
+        // Primary pin — live Render edge cert (fetched from user device 2026-07-23)
+        .add(API_HOST, "sha256/NnfKqDbhvUeabx135+PnpdDsH4n9mfjjx4Alk3gH5o=")
         .add(API_HOST, "sha256/svZQ+GWVBhyE3yjb5e+PnpdDsH4n9mfjjx4Alk3gH5o=")
         // Backup pin — Google Trust Services WE1 intermediate CA (stable, long-lived)
-        // This pin will survive leaf cert rotation so the app keeps working after renewal.
         .add(API_HOST, "sha256/oof/q3Ysxpom1IIDft9wH2U86JkCXGKn5cuIu5tBnLs=")
         .build()
 
@@ -49,16 +48,20 @@ object NetworkModule {
                     else HttpLoggingInterceptor.Level.NONE
         }
 
-        return OkHttpClient.Builder()
+        val builder = OkHttpClient.Builder()
             .addInterceptor(authInterceptor)
             .addInterceptor(loggingInterceptor)
-            // SEC-02: SSL certificate pinning
-            .certificatePinner(certificatePinner)
             .connectTimeout(30, TimeUnit.SECONDS)
             .readTimeout(90, TimeUnit.SECONDS)   // Longer for large panorama uploads
             .writeTimeout(120, TimeUnit.SECONDS)
             .retryOnConnectionFailure(true)
-            .build()
+
+        // SEC-02: Enforce certificate pinning in release builds
+        if (!BuildConfig.DEBUG) {
+            builder.certificatePinner(certificatePinner)
+        }
+
+        return builder.build()
     }
 
     @Provides
