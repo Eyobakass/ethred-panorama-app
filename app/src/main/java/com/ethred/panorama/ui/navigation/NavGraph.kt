@@ -32,8 +32,8 @@ sealed class Screen(val route: String) {
     object Capture : Screen("capture/{sessionId}") {
         fun createRoute(sessionId: String) = "capture/$sessionId"
     }
-    object Stitching : Screen("stitching/{sessionId}") {
-        fun createRoute(sessionId: String) = "stitching/$sessionId"
+    object Stitching : Screen("stitching/{sessionId}?nadirOption={nadirOption}") {
+        fun createRoute(sessionId: String, nadirOption: Int = 0) = "stitching/$sessionId?nadirOption=$nadirOption"
     }
     object Preview : Screen("preview/{sessionId}") {
         fun createRoute(sessionId: String) = "preview/$sessionId"
@@ -126,8 +126,10 @@ fun AppNavGraph(
 
         composable(Screen.Stitching.route) { backStackEntry ->
             val sessionId = backStackEntry.arguments?.getString("sessionId") ?: ""
+            val nadirOption = backStackEntry.arguments?.getString("nadirOption")?.toIntOrNull() ?: 0
             StitchingProgressScreen(
                 sessionId = sessionId,
+                nadirOption = nadirOption,
                 workManager = workManager,
                 sessionRepository = sessionRepository,
                 onStitchingComplete = {
@@ -144,8 +146,8 @@ fun AppNavGraph(
                 sessionId = sessionId,
                 sessionRepository = sessionRepository,
                 uploadQueueRepository = uploadQueueRepository,
-                onRetake = {
-                    navController.navigate(Screen.Capture.createRoute(sessionId))
+                onRetake = { nadirOption ->
+                    navController.navigate(Screen.Stitching.createRoute(sessionId, nadirOption))
                 },
                 onAddAnotherRoom = {
                     navController.popBackStack(Screen.Dashboard.route, inclusive = false)

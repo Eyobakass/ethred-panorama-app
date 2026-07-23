@@ -22,6 +22,7 @@ import kotlinx.coroutines.delay
 @Composable
 fun StitchingProgressScreen(
     sessionId: String,
+    nadirOption: Int = 0,
     workManager: WorkManager,
     sessionRepository: CaptureSessionRepository,
     onStitchingComplete: () -> Unit
@@ -29,12 +30,12 @@ fun StitchingProgressScreen(
     var stageLabel by remember { mutableStateOf("Decoding frames...") }
     var progress by remember { mutableFloatStateOf(0.1f) }
 
-    LaunchedEffect(sessionId) {
+    LaunchedEffect(sessionId, nadirOption) {
         val stitchRequest = OneTimeWorkRequestBuilder<StitchWorker>()
             .setInputData(
                 workDataOf(
                     StitchWorker.KEY_SESSION_ID to sessionId,
-                    StitchWorker.KEY_NADIR_OPTION to 0
+                    StitchWorker.KEY_NADIR_OPTION to nadirOption
                 )
             )
             .build()

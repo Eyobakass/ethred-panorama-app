@@ -34,7 +34,7 @@ fun PreviewScreen(
     sessionId: String,
     sessionRepository: CaptureSessionRepository,
     uploadQueueRepository: UploadQueueRepository,
-    onRetake: () -> Unit,
+    onRetake: (nadirOption: Int) -> Unit,
     onAddAnotherRoom: () -> Unit,
     onLinkRooms: (propertyId: String) -> Unit,
     onUploadNow: (propertyId: String) -> Unit
@@ -163,7 +163,7 @@ fun PreviewScreen(
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         OutlinedButton(
-                            onClick = onRetake,
+                            onClick = { onRetake(selectedNadirOption) },
                             modifier = Modifier.weight(1f),
                             shape = RoundedCornerShape(8.dp)
                         ) {
