@@ -128,6 +128,7 @@ dependencies {
     implementation(libs.coil.compose)
     implementation(libs.androidx.security.crypto)
     implementation(libs.androidx.exifinterface)
+    implementation(libs.androidx.webkit)
 
     // Testing
     testImplementation(libs.junit)

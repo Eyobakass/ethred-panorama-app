@@ -20,21 +20,24 @@ class NativeStitcher {
         init {
             isLibraryLoaded = try {
                 System.loadLibrary("stitcher")
-                Log.i(TAG, "libstitcher.so loaded — OpenCV stitching available")
+                Log.i(TAG, "libstitcher.so loaded successfully")
                 true
             } catch (e: UnsatisfiedLinkError) {
-                Log.w(TAG, "libstitcher.so not loaded (${e.message}) — Kotlin fallback will be used")
+                Log.w(TAG, "libstitcher.so failed to load (${e.message}) — Kotlin fallback will be used")
                 false
             }
         }
     }
 
     /**
-     * Stitches frames to an equirectangular panorama.
+     * Stitches frames into an equirectangular panorama.
      *
-     * If libstitcher.so is available (built with OpenCV), the full native
-     * OpenCV pipeline runs. Otherwise, the Kotlin fallback blender is used —
-     * it produces a real 4096×2048 horizontal strip rather than copying frame[0].
+     * Priority chain:
+     *  1. Native OpenCV stitcher  (if libstitcher.so is loaded AND OpenCV was compiled in)
+     *  2. KotlinFallbackStitcher  (always available — blends all frames side-by-side)
+     *
+     * The C++ #else block now returns isSuccess=false with "OpenCV not available"
+     * so this method can detect it and route to the Kotlin fallback.
      */
     fun stitch(
         framePaths: Array<String>,
@@ -44,13 +47,30 @@ class NativeStitcher {
         outputPath: String,
         nadirCapOption: Int
     ): StitchResult {
-        return if (isLibraryLoaded) {
-            Log.i(TAG, "Using native OpenCV stitcher for ${framePaths.size} frames")
-            nativeStitchFrames(framePaths, yaws, pitches, rolls, outputPath, nadirCapOption)
-        } else {
-            Log.i(TAG, "Using Kotlin fallback stitcher for ${framePaths.size} frames")
-            KotlinFallbackStitcher.stitch(framePaths, outputPath)
+        // ── Step 1: Skip native entirely if .so never loaded ─────────────────
+        if (!isLibraryLoaded) {
+            Log.i(TAG, "Library not loaded — routing directly to KotlinFallbackStitcher")
+            return KotlinFallbackStitcher.stitch(framePaths, outputPath)
         }
+
+        // ── Step 2: Try native ───────────────────────────────────────────────
+        Log.i(TAG, "Calling native stitcher for ${framePaths.size} frames")
+        val nativeResult = nativeStitchFrames(
+            framePaths, yaws, pitches, rolls, outputPath, nadirCapOption
+        )
+
+        // ── Step 3: Fall back to Kotlin if OpenCV is not compiled in ─────────
+        // The C++ #else branch returns isSuccess=false with this specific message.
+        if (!nativeResult.isSuccess &&
+            nativeResult.errorMessage?.contains("OpenCV not available") == true
+        ) {
+            Log.i(TAG, "Native reported no OpenCV — routing to KotlinFallbackStitcher")
+            return KotlinFallbackStitcher.stitch(framePaths, outputPath)
+        }
+
+        // ── Step 4: Return native result (success or genuine failure) ────────
+        Log.i(TAG, "Native result: success=${nativeResult.isSuccess} err=${nativeResult.errorMessage}")
+        return nativeResult
     }
 
     private external fun nativeStitchFrames(

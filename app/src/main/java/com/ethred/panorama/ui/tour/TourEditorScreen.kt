@@ -29,10 +29,10 @@ import com.ethred.panorama.data.local.db.HotspotEntity
 import com.ethred.panorama.data.repository.CaptureSessionRepository
 import com.ethred.panorama.data.repository.UploadQueueRepository
 import com.ethred.panorama.domain.usecase.GenerateTourManifestUseCase
-import com.ethred.panorama.ui.preview.getPanoramaCacheUrl
-import kotlinx.coroutines.Dispatchers
+import com.ethred.panorama.ui.preview.buildPanoramaAssetLoader
+import com.ethred.panorama.ui.preview.getPanoramaAssetUrl
+import com.ethred.panorama.ui.preview.makeAssetWebViewClient
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.io.File
 
@@ -69,8 +69,6 @@ fun TourEditorScreen(
     var clickedPitch     by remember { mutableFloatStateOf(0f) }
     var clickedYaw       by remember { mutableFloatStateOf(0f) }
     var isPublishing     by remember { mutableStateOf(false) }
-    // WebView-accessible URL (copied from filesDir → externalCacheDir)
-    var panoramaCacheUrl by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(propertyId) {
         sessionRepository.getSessionsForProperty(propertyId).collect { list ->
@@ -84,14 +82,6 @@ fun TourEditorScreen(
     LaunchedEffect(selectedSession) {
         selectedSession?.let { s ->
             currentHotspots = sessionRepository.getHotspots(s.id)
-            // Copy panorama to cache whenever selection changes
-            val outPath = s.outputPath
-            panoramaCacheUrl = null  // reset while copying
-            if (outPath != null) {
-                panoramaCacheUrl = withContext(Dispatchers.IO) {
-                    getPanoramaCacheUrl(context, outPath)
-                }
-            }
         }
     }
 
@@ -153,59 +143,53 @@ fun TourEditorScreen(
                         }
                     }
                     else -> {
-                        val cacheUrl = panoramaCacheUrl
-                        val safeFileUrl = remember(cacheUrl) {
-                            if (cacheUrl != null) {
-                                try { JSONObject.quote(cacheUrl) }
-                                catch (_: Exception) { "\"$cacheUrl\"" }
-                            } else null
+                        val outputPath = currentSession.outputPath
+                        val assetLoader = remember(outputPath) {
+                            if (outputPath != null) buildPanoramaAssetLoader(context, outputPath) else null
+                        }
+                        val panoramaFileName = outputPath?.let { File(it).name } ?: "equirectangular_360.jpg"
+                        val assetUrl = remember(panoramaFileName) {
+                            try { JSONObject.quote(getPanoramaAssetUrl(panoramaFileName)) }
+                            catch (_: Exception) { "\"${getPanoramaAssetUrl(panoramaFileName)}\"" }
                         }
 
-                        if (safeFileUrl == null) {
-                            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                                CircularProgressIndicator()
-                            }
-                        } else {
-                            AndroidView(
-                                factory = { ctx ->
-                                    WebView(ctx).apply {
-                                        settings.javaScriptEnabled         = true
-                                        settings.allowFileAccess           = true
-                                        settings.allowContentAccess        = true
-                                        @Suppress("DEPRECATION")
-                                        settings.allowUniversalAccessFromFileURLs = true
+                        AndroidView(
+                            factory = { ctx ->
+                                WebView(ctx).apply {
+                                    settings.javaScriptEnabled  = true
+                                    settings.allowFileAccess    = true
+                                    settings.allowContentAccess = true
 
-                                        addJavascriptInterface(
-                                            AndroidHotspotBridge { pitch, yaw ->
-                                                if (currentHotspots.size >= 5) {
-                                                    coroutineScope.launch {
-                                                        snackbarState.showSnackbar("Maximum 5 hotspots per room.")
-                                                    }
-                                                } else {
-                                                    clickedPitch      = pitch
-                                                    clickedYaw        = yaw
-                                                    showHotspotDialog = true
+                                    addJavascriptInterface(
+                                        AndroidHotspotBridge { pitch, yaw ->
+                                            if (currentHotspots.size >= 5) {
+                                                coroutineScope.launch {
+                                                    snackbarState.showSnackbar("Maximum 5 hotspots per room.")
                                                 }
-                                            },
-                                            "AndroidBridge"
-                                        )
+                                            } else {
+                                                clickedPitch      = pitch
+                                                clickedYaw        = yaw
+                                                showHotspotDialog = true
+                                            }
+                                        },
+                                        "AndroidBridge"
+                                    )
+                                }
+                            },
+                            update = { webView ->
+                                if (assetLoader != null) {
+                                    webView.webViewClient = makeAssetWebViewClient(assetLoader) { view ->
+                                        view?.evaluateJavascript("loadPanorama($assetUrl);", null)
                                     }
-                                },
-                                update = { webView ->
-                                    webView.webViewClient = object : WebViewClient() {
-                                        override fun onPageFinished(view: WebView?, url: String?) {
-                                            view?.evaluateJavascript("loadPanorama($safeFileUrl);", null)
-                                        }
-                                    }
-                                    if (webView.url == null) {
-                                        webView.loadUrl("file:///android_asset/pannellum/index.html")
-                                    } else {
-                                        webView.evaluateJavascript("loadPanorama($safeFileUrl);", null)
-                                    }
-                                },
-                                modifier = Modifier.fillMaxSize()
-                            )
-                        }
+                                }
+                                if (webView.url == null) {
+                                    webView.loadUrl("file:///android_asset/pannellum/index.html")
+                                } else {
+                                    webView.evaluateJavascript("loadPanorama($assetUrl);", null)
+                                }
+                            },
+                            modifier = Modifier.fillMaxSize()
+                        )
                     }
                 }
             }

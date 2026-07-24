@@ -2,47 +2,85 @@ package com.ethred.panorama.ui.preview
 
 import android.content.Context
 import android.util.Log
+import android.webkit.WebResourceRequest
+import android.webkit.WebResourceResponse
+import android.webkit.WebView
+import android.webkit.WebViewClient
+import androidx.webkit.WebViewAssetLoader
 import java.io.File
 
-private const val TAG = "PanoramaCache"
+private const val TAG = "PanoramaWebView"
 
 /**
- * Copies the panorama JPEG from internal files storage to the app's
- * external cache directory so Android WebView can load it via file://.
- *
- * WebViews loaded from file:///android_asset/ cannot cross into
- * file:///data/data/<package>/files/ (different origin, blocked by
- * Android security). The externalCacheDir is accessible via file://
- * without requiring storage permissions and without WebView origin issues.
- *
- * @param context     Application context
- * @param sourcePath  Absolute path in filesDir (e.g. /data/data/.../files/panoramas/...)
- * @return            A file:// URL string accessible from the WebView,
- *                    or null if the copy failed.
+ * Virtual host used by WebViewAssetLoader.
+ * Files served under https://appassets.androidplatform.net/panorama/
+ * are always accessible from any WebView page, bypassing cross-origin
+ * file:// restrictions that block filesDir paths on Android 7+.
  */
-fun getPanoramaCacheUrl(context: Context, sourcePath: String): String? {
-    return try {
-        val src = File(sourcePath)
-        if (!src.exists()) {
-            Log.e(TAG, "Source panorama not found: $sourcePath")
-            return null
-        }
+private const val ASSET_HOST = "appassets.androidplatform.net"
+private const val PANORAMA_PATH_PREFIX = "/panorama/"
 
-        // Use externalCacheDir which is accessible to WebView file:// URLs
-        val cacheDir = context.externalCacheDir ?: context.cacheDir
-        val dst = File(cacheDir, "panorama_preview.jpg")
+/**
+ * Returns the https:// URL the WebView should use for this panorama file.
+ * Example: https://appassets.androidplatform.net/panorama/equirectangular_360.jpg
+ */
+fun getPanoramaAssetUrl(fileName: String = "equirectangular_360.jpg"): String {
+    return "https://$ASSET_HOST$PANORAMA_PATH_PREFIX$fileName"
+}
 
-        // Only copy if source is newer than cached copy (saves time on re-opens)
-        if (!dst.exists() || src.lastModified() > dst.lastModified() || dst.length() != src.length()) {
-            src.copyTo(dst, overwrite = true)
-            Log.i(TAG, "Panorama copied to cache: ${dst.absolutePath} (${dst.length()} bytes)")
-        } else {
-            Log.i(TAG, "Using existing cache: ${dst.absolutePath}")
-        }
+/**
+ * Builds a [WebViewAssetLoader] that maps
+ *   https://appassets.androidplatform.net/panorama/<filename>
+ * to
+ *   <filesDir>/panoramas/<sessionId>/<filename>
+ *
+ * This is the official Android way to serve internal storage files to a WebView
+ * without any cross-origin file:// issues.
+ *
+ * @param context   Application context
+ * @param outputPath  Absolute path to the panorama JPEG in internal storage
+ */
+fun buildPanoramaAssetLoader(
+    context: Context,
+    outputPath: String
+): WebViewAssetLoader {
+    // The asset loader needs a directory, not a file
+    val panoramaDir = File(outputPath).parentFile
+        ?: context.filesDir
 
-        "file://${dst.absolutePath}"
-    } catch (e: Exception) {
-        Log.e(TAG, "Failed to cache panorama: ${e.message}", e)
-        null
+    Log.i(TAG, "AssetLoader serving from: ${panoramaDir.absolutePath}")
+
+    return WebViewAssetLoader.Builder()
+        .setDomain(ASSET_HOST)
+        .setHttpAllowed(false) // https only
+        .addPathHandler(
+            PANORAMA_PATH_PREFIX,
+            WebViewAssetLoader.InternalStoragePathHandler(context, panoramaDir)
+        )
+        .addPathHandler(
+            "/assets/",
+            WebViewAssetLoader.AssetsPathHandler(context)
+        )
+        .build()
+}
+
+/**
+ * Convenience: creates a [WebViewClient] that intercepts requests through [assetLoader].
+ * Provide an optional [onPageFinished] callback for post-load JS injection.
+ */
+fun makeAssetWebViewClient(
+    assetLoader: WebViewAssetLoader,
+    onPageFinished: ((WebView?) -> Unit)? = null
+): WebViewClient = object : WebViewClient() {
+
+    override fun shouldInterceptRequest(
+        view: WebView?,
+        request: WebResourceRequest
+    ): WebResourceResponse? {
+        return assetLoader.shouldInterceptRequest(request.url)
+    }
+
+    override fun onPageFinished(view: WebView?, url: String?) {
+        onPageFinished?.invoke(view)
     }
 }

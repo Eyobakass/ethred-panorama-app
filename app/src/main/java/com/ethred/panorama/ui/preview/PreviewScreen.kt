@@ -8,7 +8,6 @@ import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
 import android.webkit.WebView
-import android.webkit.WebViewClient
 import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
@@ -59,16 +58,9 @@ fun PreviewScreen(
     var isLoading           by remember { mutableStateOf(true) }
     var selectedNadirOption by remember { mutableIntStateOf(0) }
     var showRetakeDialog    by remember { mutableStateOf(false) }
-    // Cached file:// URL accessible to WebView (copied from private filesDir → externalCacheDir)
-    var panoramaCacheUrl    by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(sessionId) {
         session   = sessionRepository.getSession(sessionId)
-        // Copy panorama to cache so WebView can load it
-        val outPath = session?.outputPath
-        if (outPath != null) {
-            panoramaCacheUrl = getPanoramaCacheUrl(context, outPath)
-        }
         isLoading = false
     }
 
@@ -194,50 +186,40 @@ fun PreviewScreen(
                     .fillMaxWidth()
                     .weight(1f)
             ) {
-                val cacheUrl = panoramaCacheUrl
-                val safeFileUrl = remember(cacheUrl) {
-                    if (cacheUrl != null) {
-                        try { JSONObject.quote(cacheUrl) }
-                        catch (_: Exception) { "\"$cacheUrl\"" }
-                    } else null
+                // Build asset loader once per outputPath change.
+                // Maps https://appassets.androidplatform.net/panorama/<file>
+                // to the panorama directory in internal storage.
+                val outputPath = currentSession.outputPath
+                val assetLoader = remember(outputPath) {
+                    if (outputPath != null) buildPanoramaAssetLoader(context, outputPath) else null
+                }
+                // Safe JSON-quoted URL for the JS call
+                val panoramaFileName = outputPath?.let { File(it).name } ?: "equirectangular_360.jpg"
+                val assetUrl = remember(panoramaFileName) {
+                    try { JSONObject.quote(getPanoramaAssetUrl(panoramaFileName)) }
+                    catch (_: Exception) { "\"${getPanoramaAssetUrl(panoramaFileName)}\"" }
                 }
 
-                if (safeFileUrl == null) {
-                    // Still copying to cache or no panorama
-                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            CircularProgressIndicator()
-                            Spacer(Modifier.height(12.dp))
-                            Text("Loading panorama…",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f))
+                AndroidView(
+                    factory = { ctx ->
+                        WebView(ctx).apply {
+                            settings.javaScriptEnabled  = true
+                            settings.allowFileAccess    = true
+                            settings.allowContentAccess = true
                         }
-                    }
-                } else {
-                    AndroidView(
-                        factory = { ctx ->
-                            WebView(ctx).apply {
-                                settings.javaScriptEnabled         = true
-                                settings.allowFileAccess           = true
-                                settings.allowContentAccess        = true
-                                // Allow file:// to load sibling file:// resources (needed for pannellum assets)
-                                @Suppress("DEPRECATION")
-                                settings.allowUniversalAccessFromFileURLs = true
+                    },
+                    update = { webView ->
+                        if (assetLoader != null) {
+                            webView.webViewClient = makeAssetWebViewClient(assetLoader) { view ->
+                                view?.evaluateJavascript("loadPanorama($assetUrl);", null)
                             }
-                        },
-                        update = { webView ->
-                            webView.webViewClient = object : WebViewClient() {
-                                override fun onPageFinished(view: WebView?, url: String?) {
-                                    view?.evaluateJavascript("loadPanorama($safeFileUrl);", null)
-                                }
-                            }
-                            if (webView.url == null) {
-                                webView.loadUrl("file:///android_asset/pannellum/index.html")
-                            }
-                        },
-                        modifier = Modifier.fillMaxSize()
-                    )
-                }
+                        }
+                        if (webView.url == null) {
+                            webView.loadUrl("file:///android_asset/pannellum/index.html")
+                        }
+                    },
+                    modifier = Modifier.fillMaxSize()
+                )
 
                 // Low Quality Warning Banner
                 if (currentSession.qualityScore in 1..2) {

@@ -326,22 +326,10 @@ Java_com_ethred_panorama_stitching_NativeStitcher_nativeStitchFrames(
     return createStitchResult(env, true, outPathStr, qualityScore, "");
 
 #else
-    // ── Fallback path (no OpenCV) ──────────────────────────────────────────
-    LOGI("Running fallback blender (no OpenCV) for %d frames", frameCount);
-    if (inputPaths.empty()) {
-        return createStitchResult(env, false, "", 0, "No frames to process");
-    }
-
-    // Copy first frame as placeholder output
-    std::ifstream src(inputPaths[0], std::ios::binary);
-    std::ofstream dst(outPathStr, std::ios::binary | std::ios::trunc);
-    if (src && dst) {
-        dst << src.rdbuf();
-    }
-    src.close(); dst.close();
-
-    // Still embed proper XMP
-    writeGPanoXmpToJpeg(outPathStr, 4096, 2048);
-    return createStitchResult(env, true, outPathStr, 3, "Fallback mode: OpenCV not available");
+    // ── No OpenCV: return failure so the Kotlin fallback stitcher takes over ──
+    // KotlinFallbackStitcher (in NativeStitcher.kt) blends all frames into a
+    // proper 4096×2048 equirectangular strip instead of copying frame[0].
+    LOGI("OpenCV not compiled in. Returning failure so KotlinFallbackStitcher runs.");
+    return createStitchResult(env, false, "", 0, "OpenCV not available — Kotlin fallback required");
 #endif
 }
