@@ -31,11 +31,20 @@ class EncryptedTokenStorage @Inject constructor(
         return sharedPreferences.getString(KEY_TOKEN, null)
     }
 
+    fun saveRole(role: String) {
+        sharedPreferences.edit().putString(KEY_ROLE, role).apply()
+    }
+
+    fun getRole(): String? {
+        return sharedPreferences.getString(KEY_ROLE, null)
+    }
+
     fun clearToken() {
-        sharedPreferences.edit().remove(KEY_TOKEN).apply()
+        sharedPreferences.edit().remove(KEY_TOKEN).remove(KEY_ROLE).apply()
     }
 
     companion object {
         private const val KEY_TOKEN = "jwt_access_token"
+        private const val KEY_ROLE = "user_role"
     }
 }

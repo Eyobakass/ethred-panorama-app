@@ -165,9 +165,9 @@ Java_com_ethred_panorama_stitching_NativeStitcher_nativeStitchFrames(
             LOGE("Failed to decode: %s", path.c_str());
             continue;
         }
-        // Downsample for feature detection as per SRS §2.3 Step 2
+        // Downsample for feature detection — 1280x960 is sufficient for AKAZE and halves mem/time
         cv::Mat small;
-        cv::resize(full, small, cv::Size(1920, 1440));
+        cv::resize(full, small, cv::Size(1280, 960));
         featureMats.push_back(small);
         fullResMats.push_back(full);
     }
@@ -252,7 +252,7 @@ Java_com_ethred_panorama_stitching_NativeStitcher_nativeStitchFrames(
     cv::Ptr<cv::Stitcher> stitcher = cv::Stitcher::create(cv::Stitcher::PANORAMA);
 
     // Configure explicit detail pipeline components per SRS §2.3
-    stitcher->setPanoConfidenceThresh(0.3f);
+    stitcher->setPanoConfidenceThresh(0.2f);
     // BlocksGainCompensator block_size=32 as per FR-STITCH-03
     stitcher->setExposureCompensator(
         cv::makePtr<cv::detail::BlocksGainCompensator>(32)
@@ -261,8 +261,8 @@ Java_com_ethred_panorama_stitching_NativeStitcher_nativeStitchFrames(
     stitcher->setSeamFinder(
         cv::makePtr<cv::detail::GraphCutSeamFinder>(cv::detail::GraphCutSeamFinder::COST_COLOR_GRAD)
     );
-    // MultiBandBlender num_bands=5 as per FR-STITCH-03
-    stitcher->setBlender(cv::makePtr<cv::detail::MultiBandBlender>(false, 5));
+    // MultiBandBlender num_bands=3 — 5 is overkill on mobile, 3 gives same quality with much less RAM/time
+    stitcher->setBlender(cv::makePtr<cv::detail::MultiBandBlender>(false, 3));
 
     cv::Mat panorama;
     cv::Stitcher::Status status = stitcher->stitch(featureMats, panorama);

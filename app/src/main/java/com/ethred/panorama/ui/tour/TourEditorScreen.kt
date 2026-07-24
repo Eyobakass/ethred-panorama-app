@@ -1,18 +1,19 @@
 package com.ethred.panorama.ui.tour
 
+import android.os.Handler
+import android.os.Looper
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
 import android.webkit.WebViewClient
-import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.AutoMirrored.Filled.ArrowBack
 import androidx.compose.material.icons.filled.AddLocation
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Publish
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -29,6 +30,7 @@ import com.ethred.panorama.data.repository.CaptureSessionRepository
 import com.ethred.panorama.data.repository.UploadQueueRepository
 import com.ethred.panorama.domain.usecase.GenerateTourManifestUseCase
 import kotlinx.coroutines.launch
+import org.json.JSONObject
 import java.io.File
 
 class AndroidHotspotBridge(
@@ -36,7 +38,10 @@ class AndroidHotspotBridge(
 ) {
     @JavascriptInterface
     fun onPanoramaLongPress(pitch: Double, yaw: Double) {
-        onLongPress(pitch.toFloat(), yaw.toFloat())
+        // JS bridge calls on background thread — must post to main
+        Handler(Looper.getMainLooper()).post {
+            onLongPress(pitch.toFloat(), yaw.toFloat())
+        }
     }
 }
 
@@ -50,15 +55,17 @@ fun TourEditorScreen(
     onNavigateBack: () -> Unit,
     onPublishSuccess: () -> Unit
 ) {
-    val context = LocalContext.current
+    val context        = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
+    val snackbarState  = remember { SnackbarHostState() }
 
-    var sessions by remember { mutableStateOf<List<CaptureSessionEntity>>(emptyList()) }
-    var selectedSession by remember { mutableStateOf<CaptureSessionEntity?>(null) }
-    var currentHotspots by remember { mutableStateOf<List<HotspotEntity>>(emptyList()) }
-    var showBottomSheet by remember { mutableStateOf(false) }
-    var clickedPitch by remember { mutableFloatStateOf(0f) }
-    var clickedYaw by remember { mutableFloatStateOf(0f) }
+    var sessions         by remember { mutableStateOf<List<CaptureSessionEntity>>(emptyList()) }
+    var selectedSession  by remember { mutableStateOf<CaptureSessionEntity?>(null) }
+    var currentHotspots  by remember { mutableStateOf<List<HotspotEntity>>(emptyList()) }
+    var showHotspotDialog by remember { mutableStateOf(false) }
+    var clickedPitch     by remember { mutableFloatStateOf(0f) }
+    var clickedYaw       by remember { mutableFloatStateOf(0f) }
+    var isPublishing     by remember { mutableStateOf(false) }
 
     LaunchedEffect(propertyId) {
         sessionRepository.getSessionsForProperty(propertyId).collect { list ->
@@ -70,23 +77,26 @@ fun TourEditorScreen(
     }
 
     LaunchedEffect(selectedSession) {
-        selectedSession?.let { session ->
-            currentHotspots = sessionRepository.getHotspots(session.id)
+        selectedSession?.let { s ->
+            currentHotspots = sessionRepository.getHotspots(s.id)
         }
     }
 
     val currentSession = selectedSession
 
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarState) },
         topBar = {
             TopAppBar(
-                title = { Text("Interactive Tour Builder", fontWeight = FontWeight.Bold) },
+                title = { Text("Tour Builder", style = MaterialTheme.typography.titleLarge) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                        Icon(ArrowBack, contentDescription = "Back")
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface
+                )
             )
         }
     ) { paddingValues ->
@@ -96,7 +106,7 @@ fun TourEditorScreen(
                 .background(MaterialTheme.colorScheme.background)
                 .padding(paddingValues)
         ) {
-            // Room Selection Bar
+            // ── Room Selection Chips ────────────────────────────────────────
             LazyRow(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -106,143 +116,184 @@ fun TourEditorScreen(
                 items(sessions) { s ->
                     FilterChip(
                         selected = currentSession?.id == s.id,
-                        onClick = { selectedSession = s },
-                        label = { Text(s.roomName) }
+                        onClick  = { selectedSession = s },
+                        label    = { Text(s.roomName) }
                     )
                 }
             }
 
-            // WebView 360 viewer with hotspot placement
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f)
-            ) {
-                if (currentSession?.outputPath != null) {
-                    AndroidView(
-                        factory = { ctx ->
-                            WebView(ctx).apply {
-                                settings.javaScriptEnabled = true
-                                settings.allowFileAccess = true
+            // ── 360 WebView ─────────────────────────────────────────────────
+            Box(modifier = Modifier.fillMaxWidth().weight(1f)) {
+                when {
+                    sessions.isEmpty() -> {
+                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            Text("No completed rooms yet. Capture and stitch a room first.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f))
+                        }
+                    }
+                    currentSession?.outputPath == null -> {
+                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            Text("This room has no panorama yet.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f))
+                        }
+                    }
+                    else -> {
+                        val safeFileUrl = remember(currentSession.outputPath) {
+                            try { JSONObject.quote("file://${currentSession.outputPath}") }
+                            catch (_: Exception) { "\"file://${currentSession.outputPath}\"" }
+                        }
 
-                                addJavascriptInterface(
-                                    AndroidHotspotBridge { pitch, yaw ->
-                                        // FR-TOUR-02: Maximum 5 hotspots per room limit check
-                                        if (currentHotspots.size >= 5) {
-                                            Toast.makeText(context, "Maximum 5 hotspots per room allowed.", Toast.LENGTH_SHORT).show()
-                                        } else {
-                                            clickedPitch = pitch
-                                            clickedYaw = yaw
-                                            showBottomSheet = true
-                                        }
-                                    },
-                                    "AndroidBridge"
-                                )
+                        AndroidView(
+                            factory = { ctx ->
+                                WebView(ctx).apply {
+                                    settings.javaScriptEnabled  = true
+                                    settings.allowFileAccess    = true
+                                    settings.allowContentAccess = true
 
-                                webViewClient = object : WebViewClient() {
+                                    addJavascriptInterface(
+                                        AndroidHotspotBridge { pitch, yaw ->
+                                            if (currentHotspots.size >= 5) {
+                                                coroutineScope.launch {
+                                                    snackbarState.showSnackbar("Maximum 5 hotspots per room.")
+                                                }
+                                            } else {
+                                                clickedPitch      = pitch
+                                                clickedYaw        = yaw
+                                                showHotspotDialog = true
+                                            }
+                                        },
+                                        "AndroidBridge"
+                                    )
+                                }
+                            },
+                            update = { webView ->
+                                // Reload panorama when selected session changes
+                                webView.webViewClient = object : WebViewClient() {
                                     override fun onPageFinished(view: WebView?, url: String?) {
-                                        val fileUrl = "file://${currentSession.outputPath}"
-                                        view?.evaluateJavascript("loadPanorama('$fileUrl');", null)
+                                        view?.evaluateJavascript("loadPanorama($safeFileUrl);", null)
                                     }
                                 }
-                                loadUrl("file:///android_asset/pannellum/index.html")
-                            }
-                        },
-                        modifier = Modifier.fillMaxSize()
-                    )
+                                if (webView.url == null) {
+                                    webView.loadUrl("file:///android_asset/pannellum/index.html")
+                                } else {
+                                    webView.evaluateJavascript("loadPanorama($safeFileUrl);", null)
+                                }
+                            },
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    }
                 }
             }
 
-            // Bottom Bar: Hotspot count + Publish Button
+            // ── Bottom Bar: hotspot count + publish ─────────────────────────
             Surface(
                 modifier = Modifier.fillMaxWidth(),
-                color = MaterialTheme.colorScheme.surface
+                color    = MaterialTheme.colorScheme.surface
             ) {
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
+                    modifier = Modifier.fillMaxWidth().padding(16.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalAlignment     = Alignment.CenterVertically
                 ) {
                     Text(
-                        "Hotspots: ${currentHotspots.size}/5 (Long-press scene)",
-                        fontSize = 13.sp,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
+                        "${currentHotspots.size}/5 hotspots  ·  Long-press scene to add",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
                     )
 
                     Button(
                         onClick = {
                             coroutineScope.launch {
+                                isPublishing = true
                                 val manifestResult = generateTourManifestUseCase.execute(
-                                    propertyId = propertyId,
-                                    sessions = sessions,
-                                    outputDirectory = File(context.filesDir, "manifests")
+                                    propertyId       = propertyId,
+                                    sessions         = sessions,
+                                    outputDirectory  = File(context.filesDir, "manifests")
                                 )
-
+                                isPublishing = false
                                 manifestResult.fold(
                                     onSuccess = { manifestFile ->
+                                        // Use selectedSession.id (not sessions.first().id)
+                                        val uploadSessionId = currentSession?.id
+                                            ?: sessions.firstOrNull()?.id
+                                            ?: return@fold
                                         uploadQueueRepository.enqueueUpload(
-                                            sessionId = sessions.first().id,
-                                            propertyId = propertyId,
-                                            localFilePath = manifestFile.absolutePath,
-                                            mediaCategory = "DOCUMENT",
-                                            sortOrder = 0
+                                            sessionId      = uploadSessionId,
+                                            propertyId     = propertyId,
+                                            localFilePath  = manifestFile.absolutePath,
+                                            mediaCategory  = "DOCUMENT",
+                                            sortOrder      = 0
                                         )
                                         onPublishSuccess()
                                     },
-                                    onFailure = {}
+                                    onFailure = { err ->
+                                        snackbarState.showSnackbar(
+                                            "Publish failed: ${err.message ?: "Unknown error"}"
+                                        )
+                                    }
                                 )
                             }
                         },
-                        shape = RoundedCornerShape(8.dp)
+                        enabled = !isPublishing && sessions.any { it.outputPath != null },
+                        shape   = MaterialTheme.shapes.small
                     ) {
-                        Icon(Icons.Default.Publish, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text("Publish Tour", fontWeight = FontWeight.Bold)
+                        if (isPublishing) {
+                            CircularProgressIndicator(Modifier.size(16.dp),
+                                color = MaterialTheme.colorScheme.onPrimary, strokeWidth = 2.dp)
+                        } else {
+                            Icon(Icons.Default.Publish, null, modifier = Modifier.size(16.dp))
+                        }
+                        Spacer(Modifier.width(6.dp))
+                        Text("Publish Tour", style = MaterialTheme.typography.labelLarge)
                     }
                 }
             }
         }
     }
 
-    if (showBottomSheet && currentSession != null) {
+    // ── Hotspot Link Dialog ────────────────────────────────────────────────────
+    if (showHotspotDialog && currentSession != null) {
+        val otherSessions = sessions.filter { it.id != currentSession.id && it.outputPath != null }
         AlertDialog(
-            onDismissRequest = { showBottomSheet = false },
-            title = { Text("Add Hotspot Link") },
-            text = {
-                Column {
-                    Text("Select target room this doorway links to:", fontSize = 13.sp)
-                    Spacer(modifier = Modifier.height(12.dp))
-                    sessions.filter { it.id != currentSession.id }.forEach { targetSession ->
-                        TextButton(
-                            onClick = {
-                                coroutineScope.launch {
-                                    sessionRepository.addHotspot(
-                                        fromSessionId = currentSession.id,
-                                        toSessionId = targetSession.id,
-                                        pitch = clickedPitch,
-                                        yaw = clickedYaw,
-                                        label = "Go to ${targetSession.roomName}"
-                                    )
-                                    currentHotspots = sessionRepository.getHotspots(currentSession.id)
-                                    showBottomSheet = false
-                                }
-                            },
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Icon(Icons.Default.AddLocation, contentDescription = null)
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(targetSession.roomName, fontWeight = FontWeight.Bold)
+            onDismissRequest = { showHotspotDialog = false },
+            title   = { Text("Add Hotspot Link") },
+            text    = {
+                if (otherSessions.isEmpty()) {
+                    Text("No other completed rooms to link to.")
+                } else {
+                    LazyColumn {
+                        items(otherSessions) { targetSession ->
+                            TextButton(
+                                onClick = {
+                                    coroutineScope.launch {
+                                        sessionRepository.addHotspot(
+                                            fromSessionId = currentSession.id,
+                                            toSessionId   = targetSession.id,
+                                            pitch         = clickedPitch,
+                                            yaw           = clickedYaw,
+                                            label         = "→ ${targetSession.roomName}"
+                                        )
+                                        currentHotspots = sessionRepository.getHotspots(currentSession.id)
+                                        showHotspotDialog = false
+                                        // Notify WebView to draw the new hotspot
+                                        snackbarState.showSnackbar("Hotspot added to ${targetSession.roomName}")
+                                    }
+                                },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Icon(Icons.Default.AddLocation, null)
+                                Spacer(Modifier.width(8.dp))
+                                Text(targetSession.roomName, fontWeight = FontWeight.Bold)
+                            }
                         }
                     }
                 }
             },
-            confirmButton = {},
-            dismissButton = {
-                TextButton(onClick = { showBottomSheet = false }) {
-                    Text("Cancel")
-                }
+            confirmButton  = {},
+            dismissButton  = {
+                TextButton(onClick = { showHotspotDialog = false }) { Text("Cancel") }
             }
         )
     }

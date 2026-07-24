@@ -33,7 +33,11 @@ class AuthRepository @Inject constructor(
 
     fun saveDemoSession() {
         tokenStorage.saveToken("mock_demo_token_123")
+        tokenStorage.saveRole("AGENT")
     }
+
+    /** Returns the persisted user role, defaulting to AGENT for demo sessions. */
+    fun getUserRole(): String? = tokenStorage.getRole() ?: "AGENT"
 
     fun logout() {
         tokenStorage.clearToken()

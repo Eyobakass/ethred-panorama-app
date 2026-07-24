@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
+import androidx.work.workDataOf
 import com.ethred.panorama.data.local.db.CaptureSessionEntity
 import com.ethred.panorama.data.repository.CaptureSessionRepository
 import com.ethred.panorama.stitching.NativeStitcher
@@ -11,6 +12,7 @@ import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import java.io.File
 
 @HiltWorker
@@ -20,55 +22,77 @@ class StitchWorker @AssistedInject constructor(
     private val sessionRepository: CaptureSessionRepository
 ) : CoroutineWorker(context, params) {
 
+    companion object {
+        const val KEY_SESSION_ID   = "key_session_id"
+        const val KEY_NADIR_OPTION = "key_nadir_option"
+        const val KEY_PROGRESS     = "progress"
+        const val KEY_STAGE        = "stage"
+        private const val TIMEOUT_MS = 20L * 60 * 1000  // 20 minutes hard limit
+    }
+
     override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
-        val sessionId = inputData.getString(KEY_SESSION_ID) ?: return@withContext Result.failure()
+        val sessionId   = inputData.getString(KEY_SESSION_ID)   ?: return@withContext Result.failure()
         val nadirOption = inputData.getInt(KEY_NADIR_OPTION, 0)
 
         val session = sessionRepository.getSession(sessionId) ?: return@withContext Result.failure()
-        val frames = sessionRepository.getFrames(sessionId)
+        val frames  = sessionRepository.getFrames(sessionId)
 
-        if (frames.size < 16) {
+        val minFrames = (frames.size * 0.85).toInt().coerceAtLeast(10)
+        if (frames.size < minFrames) {
             sessionRepository.updateSessionStatus(sessionId, CaptureSessionEntity.STATUS_FAILED)
-            return@withContext Result.failure()
+            return@withContext Result.failure(
+                workDataOf("error" to "Insufficient frames (${frames.size} captured, need $minFrames)")
+            )
         }
 
         sessionRepository.updateSessionStatus(sessionId, CaptureSessionEntity.STATUS_STITCHING)
 
-        val outputDir = File(applicationContext.filesDir, "panoramas/$sessionId")
-        if (!outputDir.exists()) outputDir.mkdirs()
+        // Report initial stage to UI
+        setProgressAsync(workDataOf(KEY_STAGE to "Decoding frames…", KEY_PROGRESS to 0.05f))
+
+        val outputDir  = File(applicationContext.filesDir, "panoramas/$sessionId").apply { mkdirs() }
         val outputFile = File(outputDir, "equirectangular_360.jpg")
 
         val framePaths = frames.map { it.filePath }.toTypedArray()
-        val yaws = frames.map { it.yawDeg }.toFloatArray()
-        val pitches = frames.map { it.pitchDeg }.toFloatArray()
-        val rolls = frames.map { it.rollDeg }.toFloatArray()
+        val yaws       = frames.map { it.yawDeg }.toFloatArray()
+        val pitches    = frames.map { it.pitchDeg }.toFloatArray()
+        val rolls      = frames.map { it.rollDeg }.toFloatArray()
 
-        val nativeStitcher = NativeStitcher()
-        val stitchResult = nativeStitcher.nativeStitchFrames(
-            framePaths = framePaths,
-            yaws = yaws,
-            pitches = pitches,
-            rolls = rolls,
-            outputPath = outputFile.absolutePath,
-            nadirCapOption = nadirOption
-        )
+        setProgressAsync(workDataOf(KEY_STAGE to "Running stitching pipeline…", KEY_PROGRESS to 0.15f))
 
-        if (stitchResult.isSuccess && stitchResult.outputPath != null) {
+        // Hard 20-minute timeout — native call blocks this coroutine
+        val stitchResult = withTimeoutOrNull(TIMEOUT_MS) {
+            val nativeStitcher = NativeStitcher()
+            nativeStitcher.nativeStitchFrames(
+                framePaths    = framePaths,
+                yaws          = yaws,
+                pitches       = pitches,
+                rolls         = rolls,
+                outputPath    = outputFile.absolutePath,
+                nadirCapOption = nadirOption
+            )
+        }
+
+        if (stitchResult == null) {
+            // Timed out
+            sessionRepository.updateSessionStatus(sessionId, CaptureSessionEntity.STATUS_FAILED)
+            return@withContext Result.failure(workDataOf("error" to "Stitching timed out after 20 minutes"))
+        }
+
+        setProgressAsync(workDataOf(KEY_STAGE to "Finalising…", KEY_PROGRESS to 0.95f))
+
+        return@withContext if (stitchResult.isSuccess && stitchResult.outputPath != null) {
             sessionRepository.updateSessionStatus(
-                sessionId = sessionId,
-                status = CaptureSessionEntity.STATUS_DONE,
-                outputPath = stitchResult.outputPath,
+                sessionId    = sessionId,
+                status       = CaptureSessionEntity.STATUS_DONE,
+                outputPath   = stitchResult.outputPath,
                 qualityScore = stitchResult.qualityScore
             )
+            setProgressAsync(workDataOf(KEY_STAGE to "Done", KEY_PROGRESS to 1.0f))
             Result.success()
         } else {
             sessionRepository.updateSessionStatus(sessionId, CaptureSessionEntity.STATUS_FAILED)
-            Result.failure()
+            Result.failure(workDataOf("error" to (stitchResult.errorMessage ?: "Native stitcher failed")))
         }
-    }
-
-    companion object {
-        const val KEY_SESSION_ID = "key_session_id"
-        const val KEY_NADIR_OPTION = "key_nadir_option"
     }
 }

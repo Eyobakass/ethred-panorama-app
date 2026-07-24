@@ -1,9 +1,13 @@
 package com.ethred.panorama.ui.auth
 
+import android.util.Patterns
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Lock
@@ -13,7 +17,10 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusDirection
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
@@ -27,146 +34,228 @@ fun LoginScreen(
     authRepository: AuthRepository,
     onLoginSuccess: () -> Unit
 ) {
-    var email by remember { mutableStateOf("") }
-    var password by remember { mutableStateOf("") }
+    var email           by remember { mutableStateOf("") }
+    var password        by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
-    var isLoading by remember { mutableStateOf(false) }
-    var errorMessage by remember { mutableStateOf<String?>(null) }
+    var isLoading       by remember { mutableStateOf(false) }
+    var emailError      by remember { mutableStateOf<String?>(null) }
+    var passwordError   by remember { mutableStateOf<String?>(null) }
+    var networkError    by remember { mutableStateOf<String?>(null) }
 
     val coroutineScope = rememberCoroutineScope()
+    val focusManager   = LocalFocusManager.current
+
+    fun validate(): Boolean {
+        var ok = true
+        emailError    = null
+        passwordError = null
+        networkError  = null
+
+        if (email.isBlank()) {
+            emailError = "Email is required"
+            ok = false
+        } else if (!Patterns.EMAIL_ADDRESS.matcher(email.trim()).matches()) {
+            emailError = "Enter a valid email address"
+            ok = false
+        }
+        if (password.isBlank()) {
+            passwordError = "Password is required"
+            ok = false
+        } else if (password.length < 6) {
+            passwordError = "Password must be at least 6 characters"
+            ok = false
+        }
+        return ok
+    }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
-            .padding(24.dp),
+            .imePadding()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 24.dp, vertical = 48.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
+        // ── Logo ─────────────────────────────────────────────────────────────
         Surface(
             modifier = Modifier.size(80.dp),
-            shape = RoundedCornerShape(20.dp),
-            color = MaterialTheme.colorScheme.primary
+            shape    = RoundedCornerShape(20.dp),
+            color    = MaterialTheme.colorScheme.primary
         ) {
             Box(contentAlignment = Alignment.Center) {
-                Text("📡", fontSize = 40.sp)
+                Text("360°", fontSize = 22.sp, fontWeight = FontWeight.ExtraBold,
+                    color = MaterialTheme.colorScheme.onPrimary)
             }
         }
 
         Spacer(modifier = Modifier.height(24.dp))
 
         Text(
-            text = "Ethred 360° Capture",
-            fontSize = 26.sp,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onBackground
+            text       = "Ethred 360° Capture",
+            style      = MaterialTheme.typography.headlineMedium,
+            color      = MaterialTheme.colorScheme.onBackground
         )
-
         Text(
-            text = "Log in with your Ethred Agent Account",
-            fontSize = 14.sp,
-            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
-            modifier = Modifier.padding(top = 8.dp)
+            text       = "Sign in with your Ethred Agent account",
+            style      = MaterialTheme.typography.bodyMedium,
+            color      = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f),
+            modifier   = Modifier.padding(top = 6.dp)
         )
 
-        Spacer(modifier = Modifier.height(32.dp))
+        Spacer(modifier = Modifier.height(36.dp))
 
+        // ── Email Field ───────────────────────────────────────────────────────
         OutlinedTextField(
-            value = email,
-            onValueChange = { email = it; errorMessage = null },
-            label = { Text("Email Address") },
-            leadingIcon = { Icon(Icons.Default.Email, contentDescription = null) },
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(12.dp),
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email)
+            value         = email,
+            onValueChange = { email = it; emailError = null; networkError = null },
+            label         = { Text("Email Address") },
+            leadingIcon   = { Icon(Icons.Default.Email, contentDescription = null) },
+            isError       = emailError != null,
+            supportingText = emailError?.let { { Text(it, color = MaterialTheme.colorScheme.error) } },
+            singleLine    = true,
+            modifier      = Modifier.fillMaxWidth(),
+            shape         = MaterialTheme.shapes.medium,
+            keyboardOptions = KeyboardOptions(
+                keyboardType = KeyboardType.Email,
+                imeAction    = ImeAction.Next
+            ),
+            keyboardActions = KeyboardActions(
+                onNext = { focusManager.moveFocus(FocusDirection.Down) }
+            )
         )
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(12.dp))
 
+        // ── Password Field ────────────────────────────────────────────────────
         OutlinedTextField(
-            value = password,
-            onValueChange = { password = it; errorMessage = null },
-            label = { Text("Password") },
-            leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null) },
-            trailingIcon = {
+            value         = password,
+            onValueChange = { password = it; passwordError = null; networkError = null },
+            label         = { Text("Password") },
+            leadingIcon   = { Icon(Icons.Default.Lock, contentDescription = null) },
+            trailingIcon  = {
                 IconButton(onClick = { passwordVisible = !passwordVisible }) {
                     Icon(
-                        imageVector = if (passwordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
-                        contentDescription = null
+                        imageVector        = if (passwordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
+                        contentDescription = if (passwordVisible) "Hide password" else "Show password"
                     )
                 }
             },
-            singleLine = true,
+            isError       = passwordError != null,
+            supportingText = passwordError?.let { { Text(it, color = MaterialTheme.colorScheme.error) } },
+            singleLine    = true,
             visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(12.dp),
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password)
+            modifier      = Modifier.fillMaxWidth(),
+            shape         = MaterialTheme.shapes.medium,
+            keyboardOptions = KeyboardOptions(
+                keyboardType = KeyboardType.Password,
+                imeAction    = ImeAction.Done
+            ),
+            keyboardActions = KeyboardActions(
+                onDone = {
+                    focusManager.clearFocus()
+                    if (validate()) {
+                        isLoading = true
+                        coroutineScope.launch {
+                            val result = authRepository.login(email.trim(), password)
+                            isLoading = false
+                            result.fold(
+                                onSuccess = { onLoginSuccess() },
+                                onFailure = { error ->
+                                    networkError = when {
+                                        error.message?.contains("401") == true ||
+                                        error.message?.contains("403") == true ->
+                                            "Invalid email or password."
+                                        error.message?.contains("certificate") == true ||
+                                        error.message?.contains("SSL") == true ->
+                                            "Security error. Please check your connection."
+                                        else -> "Could not connect. Check your internet connection."
+                                    }
+                                }
+                            )
+                        }
+                    }
+                }
+            )
         )
 
-        errorMessage?.let { error ->
-            Spacer(modifier = Modifier.height(12.dp))
-            Text(
-                text = error,
-                color = MaterialTheme.colorScheme.error,
-                fontSize = 13.sp
-            )
+        // ── Network Error ─────────────────────────────────────────────────────
+        networkError?.let { error ->
+            Spacer(modifier = Modifier.height(8.dp))
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors   = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
+                shape    = MaterialTheme.shapes.small
+            ) {
+                Text(
+                    text     = error,
+                    color    = MaterialTheme.colorScheme.onErrorContainer,
+                    style    = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.padding(12.dp)
+                )
+            }
         }
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(28.dp))
 
+        // ── Login Button ──────────────────────────────────────────────────────
         Button(
             onClick = {
-                if (email.isBlank() || password.isBlank()) {
-                    // Quick demo login fallback if blank
-                    authRepository.saveDemoSession()
-                    onLoginSuccess()
-                    return@Button
-                }
+                focusManager.clearFocus()
+                if (!validate()) return@Button
                 isLoading = true
                 coroutineScope.launch {
-                    val result = authRepository.login(email, password)
+                    val result = authRepository.login(email.trim(), password)
                     isLoading = false
                     result.fold(
                         onSuccess = { onLoginSuccess() },
-                        onFailure = { 
-                            // Offline/Demo fallback on SSL/Network error
-                            authRepository.saveDemoSession()
-                            onLoginSuccess()
+                        onFailure = { error ->
+                            networkError = when {
+                                error.message?.contains("401") == true ||
+                                error.message?.contains("403") == true ->
+                                    "Invalid email or password."
+                                error.message?.contains("certificate") == true ||
+                                error.message?.contains("SSL") == true ->
+                                    "Security error. Please check your connection."
+                                else -> "Could not connect. Check your internet connection."
+                            }
                         }
                     )
                 }
             },
-            enabled = !isLoading,
+            enabled  = !isLoading,
             modifier = Modifier
                 .fillMaxWidth()
                 .height(52.dp),
-            shape = RoundedCornerShape(12.dp)
+            shape    = MaterialTheme.shapes.medium
         ) {
             if (isLoading) {
                 CircularProgressIndicator(
-                    modifier = Modifier.size(24.dp),
-                    color = MaterialTheme.colorScheme.onPrimary,
+                    modifier    = Modifier.size(24.dp),
+                    color       = MaterialTheme.colorScheme.onPrimary,
                     strokeWidth = 2.dp
                 )
             } else {
-                Text("Log In", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                Text("Log In", style = MaterialTheme.typography.labelLarge)
             }
         }
 
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(16.dp))
 
-        OutlinedButton(
-            onClick = {
+        // ── Demo skip (small, at bottom — not a big button) ──────────────────
+        TextButton(
+            onClick  = {
                 authRepository.saveDemoSession()
                 onLoginSuccess()
             },
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(48.dp),
-            shape = RoundedCornerShape(12.dp)
+            modifier = Modifier.fillMaxWidth()
         ) {
-            Text("⚡ Skip Login (Try Functional Features Demo)", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+            Text(
+                text  = "Continue with Demo Mode",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.45f)
+            )
         }
     }
 }
