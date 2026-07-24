@@ -59,9 +59,16 @@ fun PreviewScreen(
     var isLoading           by remember { mutableStateOf(true) }
     var selectedNadirOption by remember { mutableIntStateOf(0) }
     var showRetakeDialog    by remember { mutableStateOf(false) }
+    // Cached file:// URL accessible to WebView (copied from private filesDir → externalCacheDir)
+    var panoramaCacheUrl    by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(sessionId) {
         session   = sessionRepository.getSession(sessionId)
+        // Copy panorama to cache so WebView can load it
+        val outPath = session?.outputPath
+        if (outPath != null) {
+            panoramaCacheUrl = getPanoramaCacheUrl(context, outPath)
+        }
         isLoading = false
     }
 
@@ -187,31 +194,50 @@ fun PreviewScreen(
                     .fillMaxWidth()
                     .weight(1f)
             ) {
-                val safeFileUrl = remember(currentSession.outputPath) {
-                    try { JSONObject.quote("file://${currentSession.outputPath}") }
-                    catch (_: Exception) { "\"file://${currentSession.outputPath}\"" }
+                val cacheUrl = panoramaCacheUrl
+                val safeFileUrl = remember(cacheUrl) {
+                    if (cacheUrl != null) {
+                        try { JSONObject.quote(cacheUrl) }
+                        catch (_: Exception) { "\"$cacheUrl\"" }
+                    } else null
                 }
 
-                AndroidView(
-                    factory = { ctx ->
-                        WebView(ctx).apply {
-                            settings.javaScriptEnabled  = true
-                            settings.allowFileAccess    = true
-                            settings.allowContentAccess = true
+                if (safeFileUrl == null) {
+                    // Still copying to cache or no panorama
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            CircularProgressIndicator()
+                            Spacer(Modifier.height(12.dp))
+                            Text("Loading panorama…",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f))
                         }
-                    },
-                    update = { webView ->
-                        webView.webViewClient = object : WebViewClient() {
-                            override fun onPageFinished(view: WebView?, url: String?) {
-                                view?.evaluateJavascript("loadPanorama($safeFileUrl);", null)
+                    }
+                } else {
+                    AndroidView(
+                        factory = { ctx ->
+                            WebView(ctx).apply {
+                                settings.javaScriptEnabled         = true
+                                settings.allowFileAccess           = true
+                                settings.allowContentAccess        = true
+                                // Allow file:// to load sibling file:// resources (needed for pannellum assets)
+                                @Suppress("DEPRECATION")
+                                settings.allowUniversalAccessFromFileURLs = true
                             }
-                        }
-                        if (webView.url == null) {
-                            webView.loadUrl("file:///android_asset/pannellum/index.html")
-                        }
-                    },
-                    modifier = Modifier.fillMaxSize()
-                )
+                        },
+                        update = { webView ->
+                            webView.webViewClient = object : WebViewClient() {
+                                override fun onPageFinished(view: WebView?, url: String?) {
+                                    view?.evaluateJavascript("loadPanorama($safeFileUrl);", null)
+                                }
+                            }
+                            if (webView.url == null) {
+                                webView.loadUrl("file:///android_asset/pannellum/index.html")
+                            }
+                        },
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
 
                 // Low Quality Warning Banner
                 if (currentSession.qualityScore in 1..2) {

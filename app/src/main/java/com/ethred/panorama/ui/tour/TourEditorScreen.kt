@@ -29,7 +29,10 @@ import com.ethred.panorama.data.local.db.HotspotEntity
 import com.ethred.panorama.data.repository.CaptureSessionRepository
 import com.ethred.panorama.data.repository.UploadQueueRepository
 import com.ethred.panorama.domain.usecase.GenerateTourManifestUseCase
+import com.ethred.panorama.ui.preview.getPanoramaCacheUrl
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.io.File
 
@@ -66,6 +69,8 @@ fun TourEditorScreen(
     var clickedPitch     by remember { mutableFloatStateOf(0f) }
     var clickedYaw       by remember { mutableFloatStateOf(0f) }
     var isPublishing     by remember { mutableStateOf(false) }
+    // WebView-accessible URL (copied from filesDir → externalCacheDir)
+    var panoramaCacheUrl by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(propertyId) {
         sessionRepository.getSessionsForProperty(propertyId).collect { list ->
@@ -79,6 +84,14 @@ fun TourEditorScreen(
     LaunchedEffect(selectedSession) {
         selectedSession?.let { s ->
             currentHotspots = sessionRepository.getHotspots(s.id)
+            // Copy panorama to cache whenever selection changes
+            val outPath = s.outputPath
+            panoramaCacheUrl = null  // reset while copying
+            if (outPath != null) {
+                panoramaCacheUrl = withContext(Dispatchers.IO) {
+                    getPanoramaCacheUrl(context, outPath)
+                }
+            }
         }
     }
 
@@ -140,49 +153,59 @@ fun TourEditorScreen(
                         }
                     }
                     else -> {
-                        val safeFileUrl = remember(currentSession.outputPath) {
-                            try { JSONObject.quote("file://${currentSession.outputPath}") }
-                            catch (_: Exception) { "\"file://${currentSession.outputPath}\"" }
+                        val cacheUrl = panoramaCacheUrl
+                        val safeFileUrl = remember(cacheUrl) {
+                            if (cacheUrl != null) {
+                                try { JSONObject.quote(cacheUrl) }
+                                catch (_: Exception) { "\"$cacheUrl\"" }
+                            } else null
                         }
 
-                        AndroidView(
-                            factory = { ctx ->
-                                WebView(ctx).apply {
-                                    settings.javaScriptEnabled  = true
-                                    settings.allowFileAccess    = true
-                                    settings.allowContentAccess = true
+                        if (safeFileUrl == null) {
+                            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                CircularProgressIndicator()
+                            }
+                        } else {
+                            AndroidView(
+                                factory = { ctx ->
+                                    WebView(ctx).apply {
+                                        settings.javaScriptEnabled         = true
+                                        settings.allowFileAccess           = true
+                                        settings.allowContentAccess        = true
+                                        @Suppress("DEPRECATION")
+                                        settings.allowUniversalAccessFromFileURLs = true
 
-                                    addJavascriptInterface(
-                                        AndroidHotspotBridge { pitch, yaw ->
-                                            if (currentHotspots.size >= 5) {
-                                                coroutineScope.launch {
-                                                    snackbarState.showSnackbar("Maximum 5 hotspots per room.")
+                                        addJavascriptInterface(
+                                            AndroidHotspotBridge { pitch, yaw ->
+                                                if (currentHotspots.size >= 5) {
+                                                    coroutineScope.launch {
+                                                        snackbarState.showSnackbar("Maximum 5 hotspots per room.")
+                                                    }
+                                                } else {
+                                                    clickedPitch      = pitch
+                                                    clickedYaw        = yaw
+                                                    showHotspotDialog = true
                                                 }
-                                            } else {
-                                                clickedPitch      = pitch
-                                                clickedYaw        = yaw
-                                                showHotspotDialog = true
-                                            }
-                                        },
-                                        "AndroidBridge"
-                                    )
-                                }
-                            },
-                            update = { webView ->
-                                // Reload panorama when selected session changes
-                                webView.webViewClient = object : WebViewClient() {
-                                    override fun onPageFinished(view: WebView?, url: String?) {
-                                        view?.evaluateJavascript("loadPanorama($safeFileUrl);", null)
+                                            },
+                                            "AndroidBridge"
+                                        )
                                     }
-                                }
-                                if (webView.url == null) {
-                                    webView.loadUrl("file:///android_asset/pannellum/index.html")
-                                } else {
-                                    webView.evaluateJavascript("loadPanorama($safeFileUrl);", null)
-                                }
-                            },
-                            modifier = Modifier.fillMaxSize()
-                        )
+                                },
+                                update = { webView ->
+                                    webView.webViewClient = object : WebViewClient() {
+                                        override fun onPageFinished(view: WebView?, url: String?) {
+                                            view?.evaluateJavascript("loadPanorama($safeFileUrl);", null)
+                                        }
+                                    }
+                                    if (webView.url == null) {
+                                        webView.loadUrl("file:///android_asset/pannellum/index.html")
+                                    } else {
+                                        webView.evaluateJavascript("loadPanorama($safeFileUrl);", null)
+                                    }
+                                },
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        }
                     }
                 }
             }

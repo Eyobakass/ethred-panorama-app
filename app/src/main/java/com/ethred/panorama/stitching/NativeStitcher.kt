@@ -5,7 +5,7 @@ import android.util.Log
 data class StitchResult(
     val isSuccess: Boolean,
     val outputPath: String?,
-    val qualityScore: Int, // 1 to 5 stars
+    val qualityScore: Int, // 1–5 stars
     val errorMessage: String? = null
 )
 
@@ -14,35 +14,27 @@ class NativeStitcher {
     companion object {
         private const val TAG = "NativeStitcher"
 
-        /**
-         * True when libstitcher.so loaded successfully.
-         * If false, calling nativeStitchFrames() would throw UnsatisfiedLinkError.
-         */
         var isLibraryLoaded: Boolean = false
             private set
 
         init {
             isLibraryLoaded = try {
                 System.loadLibrary("stitcher")
-                Log.i(TAG, "Native library libstitcher.so loaded successfully")
+                Log.i(TAG, "libstitcher.so loaded — OpenCV stitching available")
                 true
             } catch (e: UnsatisfiedLinkError) {
-                Log.e(TAG, "Failed to load libstitcher.so: ${e.message}")
+                Log.w(TAG, "libstitcher.so not loaded (${e.message}) — Kotlin fallback will be used")
                 false
             }
         }
     }
 
     /**
-     * Executes native C++ stitching pipeline.
-     * Returns a failure StitchResult immediately if the native library isn't loaded.
+     * Stitches frames to an equirectangular panorama.
      *
-     * @param framePaths    Array of absolute file paths to raw JPEGs
-     * @param yaws          Array of yaw angles for each frame
-     * @param pitches       Array of pitch angles for each frame
-     * @param rolls         Array of roll angles for each frame
-     * @param outputPath    Path where the equirectangular JPEG will be saved
-     * @param nadirCapOption 0: Auto Inpaint, 1: Vignette Feather, 2: Agency Logo Cap
+     * If libstitcher.so is available (built with OpenCV), the full native
+     * OpenCV pipeline runs. Otherwise, the Kotlin fallback blender is used —
+     * it produces a real 4096×2048 horizontal strip rather than copying frame[0].
      */
     fun stitch(
         framePaths: Array<String>,
@@ -52,15 +44,13 @@ class NativeStitcher {
         outputPath: String,
         nadirCapOption: Int
     ): StitchResult {
-        if (!isLibraryLoaded) {
-            return StitchResult(
-                isSuccess    = false,
-                outputPath   = null,
-                qualityScore = 0,
-                errorMessage = "Native stitching library failed to load. The APK may not include libstitcher.so for this CPU architecture."
-            )
+        return if (isLibraryLoaded) {
+            Log.i(TAG, "Using native OpenCV stitcher for ${framePaths.size} frames")
+            nativeStitchFrames(framePaths, yaws, pitches, rolls, outputPath, nadirCapOption)
+        } else {
+            Log.i(TAG, "Using Kotlin fallback stitcher for ${framePaths.size} frames")
+            KotlinFallbackStitcher.stitch(framePaths, outputPath)
         }
-        return nativeStitchFrames(framePaths, yaws, pitches, rolls, outputPath, nadirCapOption)
     }
 
     private external fun nativeStitchFrames(
