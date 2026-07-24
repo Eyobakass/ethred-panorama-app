@@ -27,46 +27,67 @@ class StitchWorker @AssistedInject constructor(
         const val KEY_NADIR_OPTION = "key_nadir_option"
         const val KEY_PROGRESS     = "progress"
         const val KEY_STAGE        = "stage"
-        private const val TAG = "StitchWorker"
+        private const val TAG      = "StitchWorker"
     }
 
+    // ── Public entry-point: top-level catch ensures WorkManager always gets a Result ──
     override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
-        val sessionId   = inputData.getString(KEY_SESSION_ID)   ?: return@withContext Result.failure(
-            workDataOf("error" to "Missing session ID")
-        )
+        try {
+            runStitching()
+        } catch (t: Throwable) {
+            // This catches anything the inner function didn't handle
+            // (e.g. Hilt injection errors, DB init failures, CancellationException from system)
+            Log.e(TAG, "UNCAUGHT in StitchWorker: ${t::class.java.name}: ${t.message}", t)
+            try {
+                inputData.getString(KEY_SESSION_ID)?.let { sid ->
+                    sessionRepository.updateSessionStatus(sid, CaptureSessionEntity.STATUS_FAILED)
+                }
+            } catch (_: Throwable) { /* best-effort */ }
+            Result.failure(
+                workDataOf("error" to "Worker crash: ${t::class.java.simpleName}: ${t.message}")
+            )
+        }
+    }
+
+    // ── All business logic separated for clean returns ────────────────────────
+    private suspend fun runStitching(): Result {
+        val sessionId   = inputData.getString(KEY_SESSION_ID)
+            ?: return Result.failure(workDataOf("error" to "Missing session ID"))
         val nadirOption = inputData.getInt(KEY_NADIR_OPTION, 0)
 
-        Log.i(TAG, "Starting stitch for session=$sessionId nadirOption=$nadirOption")
+        Log.i(TAG, "Starting stitch: session=$sessionId nadirOption=$nadirOption")
 
-        val session = sessionRepository.getSession(sessionId) ?: return@withContext Result.failure(
-            workDataOf("error" to "Session not found in database")
-        )
-        val frames  = sessionRepository.getFrames(sessionId)
-        Log.i(TAG, "Loaded ${frames.size} frames from DB for session=$sessionId")
+        // ── Validate session exists in DB ─────────────────────────────────────
+        sessionRepository.getSession(sessionId)
+            ?: return Result.failure(workDataOf("error" to "Session '$sessionId' not found in database"))
 
-        // Require at least 10 captured frames
+        // ── Load frames from DB ───────────────────────────────────────────────
+        val frames = sessionRepository.getFrames(sessionId)
+        Log.i(TAG, "DB returned ${frames.size} frames")
+
         if (frames.size < 10) {
-            Log.e(TAG, "Too few frames: ${frames.size}")
             sessionRepository.updateSessionStatus(sessionId, CaptureSessionEntity.STATUS_FAILED)
-            return@withContext Result.failure(
-                workDataOf("error" to "Too few frames (${frames.size}). Need at least 10. Retake more slowly.")
+            return Result.failure(
+                workDataOf("error" to "Only ${frames.size} frames captured — need at least 10. Retake slowly.")
             )
         }
 
-        // Verify frame files actually exist on disk
+        // ── Verify files exist on disk ────────────────────────────────────────
         val validFrames = frames.filter { File(it.filePath).exists() }
         Log.i(TAG, "${validFrames.size}/${frames.size} frame files exist on disk")
+
         if (validFrames.size < 10) {
-            Log.e(TAG, "Frame files missing from disk! Only ${validFrames.size} found")
             sessionRepository.updateSessionStatus(sessionId, CaptureSessionEntity.STATUS_FAILED)
-            return@withContext Result.failure(
-                workDataOf("error" to "Frame files missing from disk (${validFrames.size}/${frames.size} found). Please retake.")
+            return Result.failure(
+                workDataOf("error" to "Frame files missing from device storage (${validFrames.size}/${frames.size}). Retake session.")
             )
         }
 
+        // ── Mark session as stitching ─────────────────────────────────────────
         sessionRepository.updateSessionStatus(sessionId, CaptureSessionEntity.STATUS_STITCHING)
         setProgressAsync(workDataOf(KEY_STAGE to "Decoding frames…", KEY_PROGRESS to 0.05f))
 
+        // ── Prepare output path ───────────────────────────────────────────────
         val outputDir  = File(applicationContext.filesDir, "panoramas/$sessionId").apply { mkdirs() }
         val outputFile = File(outputDir, "equirectangular_360.jpg")
 
@@ -75,14 +96,12 @@ class StitchWorker @AssistedInject constructor(
         val pitches    = validFrames.map { it.pitchDeg }.toFloatArray()
         val rolls      = validFrames.map { it.rollDeg }.toFloatArray()
 
-        Log.i(TAG, "Calling nativeStitchFrames with ${framePaths.size} frames → ${outputFile.absolutePath}")
+        Log.i(TAG, "Calling native stitcher: ${framePaths.size} frames → ${outputFile.absolutePath}")
         setProgressAsync(workDataOf(KEY_STAGE to "Running stitching pipeline…", KEY_PROGRESS to 0.15f))
 
-        // Wrap in try/catch(Throwable) — JNI errors are Error subclasses (not Exception),
-        // e.g. UnsatisfiedLinkError if the .so failed to load, or NPE if JNI returns null.
+        // ── Native stitching call (catch any JNI Error/Exception) ─────────────
         val stitchResult = try {
-            val nativeStitcher = NativeStitcher()
-            nativeStitcher.stitch(
+            NativeStitcher().stitch(
                 framePaths     = framePaths,
                 yaws           = yaws,
                 pitches        = pitches,
@@ -91,32 +110,33 @@ class StitchWorker @AssistedInject constructor(
                 nadirCapOption = nadirOption
             )
         } catch (e: UnsatisfiedLinkError) {
-            Log.e(TAG, "Native library not loaded: ${e.message}")
+            Log.e(TAG, "UnsatisfiedLinkError: ${e.message}")
             sessionRepository.updateSessionStatus(sessionId, CaptureSessionEntity.STATUS_FAILED)
-            return@withContext Result.failure(
-                workDataOf("error" to "Stitching engine not available on this device (${e.message})")
+            return Result.failure(
+                workDataOf("error" to "Native library not loaded on this device: ${e.message}")
             )
         } catch (t: Throwable) {
-            Log.e(TAG, "Native stitching threw: ${t::class.java.simpleName}: ${t.message}", t)
+            Log.e(TAG, "Native stitcher threw ${t::class.java.simpleName}: ${t.message}", t)
             sessionRepository.updateSessionStatus(sessionId, CaptureSessionEntity.STATUS_FAILED)
-            return@withContext Result.failure(
-                workDataOf("error" to "Stitching crashed: ${t::class.java.simpleName} – ${t.message}")
+            return Result.failure(
+                workDataOf("error" to "Stitcher error: ${t::class.java.simpleName}: ${t.message}")
             )
         }
 
-        // Guard against JNI returning null instead of a StitchResult object
+        // ── Guard against JNI returning null ──────────────────────────────────
         if (stitchResult == null) {
-            Log.e(TAG, "nativeStitchFrames returned null — JNI FindClass may have failed")
+            Log.e(TAG, "nativeStitchFrames returned null — JNI issue, see NativeStitcherCPP logcat")
             sessionRepository.updateSessionStatus(sessionId, CaptureSessionEntity.STATUS_FAILED)
-            return@withContext Result.failure(
-                workDataOf("error" to "Stitching engine internal error (null result). Check Logcat for NativeStitcherCPP tag.")
+            return Result.failure(
+                workDataOf("error" to "Stitching engine returned null (JNI error). See Logcat tag: NativeStitcherCPP")
             )
         }
 
-        Log.i(TAG, "nativeStitchFrames returned: success=${stitchResult.isSuccess} path=${stitchResult.outputPath} err=${stitchResult.errorMessage}")
+        Log.i(TAG, "Native result: success=${stitchResult.isSuccess} path=${stitchResult.outputPath} err=${stitchResult.errorMessage}")
         setProgressAsync(workDataOf(KEY_STAGE to "Finalising…", KEY_PROGRESS to 0.95f))
 
-        return@withContext if (stitchResult.isSuccess && stitchResult.outputPath != null) {
+        // ── Handle result ─────────────────────────────────────────────────────
+        return if (stitchResult.isSuccess && stitchResult.outputPath != null) {
             sessionRepository.updateSessionStatus(
                 sessionId    = sessionId,
                 status       = CaptureSessionEntity.STATUS_DONE,
@@ -124,13 +144,13 @@ class StitchWorker @AssistedInject constructor(
                 qualityScore = stitchResult.qualityScore
             )
             setProgressAsync(workDataOf(KEY_STAGE to "Done", KEY_PROGRESS to 1.0f))
-            Log.i(TAG, "Stitching succeeded → ${stitchResult.outputPath}")
+            Log.i(TAG, "Stitching SUCCEEDED → ${stitchResult.outputPath}")
             Result.success()
         } else {
-            val errMsg = stitchResult.errorMessage ?: "Native stitcher returned failure"
-            Log.e(TAG, "Native stitcher reported failure: $errMsg")
+            val err = stitchResult.errorMessage ?: "Native stitcher returned failure with no message"
+            Log.e(TAG, "Native stitcher FAILED: $err")
             sessionRepository.updateSessionStatus(sessionId, CaptureSessionEntity.STATUS_FAILED)
-            Result.failure(workDataOf("error" to errMsg))
+            Result.failure(workDataOf("error" to err))
         }
     }
 }

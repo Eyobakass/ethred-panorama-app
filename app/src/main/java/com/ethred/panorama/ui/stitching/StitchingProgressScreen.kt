@@ -20,14 +20,16 @@ import com.ethred.panorama.data.local.db.CaptureSessionEntity
 import com.ethred.panorama.data.repository.CaptureSessionRepository
 import com.ethred.panorama.worker.StitchWorker
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
+import java.util.UUID
 
-private const val SCREEN_TIMEOUT_MS = 25L * 60 * 1000   // 25 min screen-on wake lock
+private const val SCREEN_WAKELOCK_MS = 25L * 60 * 1000   // 25 min
 
 private sealed class StitchState {
-    object Idle        : StitchState()
-    object Running     : StitchState()
-    object Done        : StitchState()
+    object Idle    : StitchState()
+    object Running : StitchState()
+    object Done    : StitchState()
     data class Failed(val reason: String) : StitchState()
 }
 
@@ -47,9 +49,9 @@ fun StitchingProgressScreen(
     var rawProgress by remember { mutableFloatStateOf(0.02f) }
 
     val animatedProgress by animateFloatAsState(
-        targetValue  = rawProgress,
+        targetValue   = rawProgress,
         animationSpec = tween(700),
-        label = "stitch_progress"
+        label         = "stitch_progress"
     )
 
     val isFailed = stitchState is StitchState.Failed
@@ -58,15 +60,20 @@ fun StitchingProgressScreen(
     // ── Wake lock — keep screen on during stitching ───────────────────────────
     DisposableEffect(Unit) {
         val wl = (context.getSystemService(Context.POWER_SERVICE) as PowerManager)
-            .newWakeLock(PowerManager.SCREEN_DIM_WAKE_LOCK or PowerManager.ON_AFTER_RELEASE,
-                "ethred:stitching")
-            .also { it.acquire(SCREEN_TIMEOUT_MS) }
+            .newWakeLock(
+                PowerManager.SCREEN_DIM_WAKE_LOCK or PowerManager.ON_AFTER_RELEASE,
+                "ethred:stitching"
+            ).also { it.acquire(SCREEN_WAKELOCK_MS) }
         onDispose { if (wl.isHeld) wl.release() }
     }
 
-    // ── Main worker launch + observation ─────────────────────────────────────
+    // ── Launch + observe work ─────────────────────────────────────────────────
     LaunchedEffect(sessionId, nadirOption) {
-        // Enqueue (KEEP = do not re-enqueue if already running for this session)
+
+        // REPLACE: cancel any stale/previous run for this session before re-enqueueing.
+        // This prevents the flow from seeing an old FAILED state immediately.
+        workManager.cancelUniqueWork("stitch_$sessionId")
+
         val request = OneTimeWorkRequestBuilder<StitchWorker>()
             .setInputData(
                 workDataOf(
@@ -76,20 +83,22 @@ fun StitchingProgressScreen(
             )
             .build()
 
+        val workId: UUID = request.id
+
         workManager.enqueueUniqueWork(
             "stitch_$sessionId",
-            ExistingWorkPolicy.KEEP,
+            ExistingWorkPolicy.REPLACE,
             request
         )
 
         stitchState = StitchState.Running
 
-        // Collect WorkInfo until terminal state — use a loop so return@collect doesn't trick us
-        workManager.getWorkInfosForUniqueWorkFlow("stitch_$sessionId")
-            .first { infos ->
-                val info = infos.firstOrNull() ?: return@first false
-
-                // Update progress labels from worker progress data
+        // Track EXACTLY this work request by ID — not by name — so we never read
+        // a stale FAILED state from a previous run.
+        workManager.getWorkInfoByIdFlow(workId)
+            .filter { it != null }   // skip null emissions before work is registered
+            .first { info ->
+                // Update progress display from worker's setProgressAsync() data
                 val stage    = info.progress.getString(StitchWorker.KEY_STAGE)
                 val progress = info.progress.getFloat(StitchWorker.KEY_PROGRESS, -1f)
                 if (!stage.isNullOrBlank()) stageLabel  = stage
@@ -100,22 +109,22 @@ fun StitchingProgressScreen(
                         rawProgress = 1f
                         stageLabel  = "Complete ✓"
                         stitchState = StitchState.Done
-                        true   // stop collecting
+                        true  // stop collecting
                     }
                     WorkInfo.State.FAILED, WorkInfo.State.CANCELLED -> {
                         val reason = info.outputData.getString("error")
                             ?: if (info.state == WorkInfo.State.CANCELLED)
                                 "Stitching was cancelled."
                             else
-                                "Stitching failed — check device Logcat (tag: StitchWorker) for details."
+                                "Stitching failed. Open Android Studio Logcat and filter by tag 'StitchWorker' to see the exact error."
                         stitchState = StitchState.Failed(reason)
-                        true   // stop collecting
+                        true  // stop collecting
                     }
-                    else -> false  // keep collecting (ENQUEUED / RUNNING / BLOCKED)
+                    else -> false   // ENQUEUED / RUNNING / BLOCKED — keep waiting
                 }
             }
 
-        // Verify DB state matches WorkManager success signal
+        // ── Double-check DB after WorkManager reports success ─────────────────
         if (stitchState is StitchState.Done) {
             val session = sessionRepository.getSession(sessionId)
             if (session?.status == CaptureSessionEntity.STATUS_DONE) {
@@ -123,16 +132,16 @@ fun StitchingProgressScreen(
                 onStitchingComplete()
             } else {
                 stitchState = StitchState.Failed(
-                    "Panorama output not found in database (status=${session?.status}). Please retake."
+                    "Panorama file not saved (DB status=${session?.status}). Please retake."
                 )
             }
         }
     }
 
-    // ── Auto-navigate away after 3 s on failure ───────────────────────────────
+    // ── Auto-navigate back after failure ──────────────────────────────────────
     LaunchedEffect(isFailed) {
         if (isFailed) {
-            delay(4000)
+            delay(5000)
             onStitchingFailed()
         }
     }
@@ -146,6 +155,7 @@ fun StitchingProgressScreen(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
+        // Status icon
         Surface(
             modifier = Modifier.size(100.dp),
             shape    = RoundedCornerShape(24.dp),
@@ -170,21 +180,20 @@ fun StitchingProgressScreen(
 
         Spacer(Modifier.height(32.dp))
 
+        // Title
         Text(
             text  = when {
                 isFailed -> "Stitching Failed"
-                isDone   -> "Complete!"
+                isDone   -> "Panorama Ready!"
                 else     -> "Stitching 360° Panorama"
             },
             style = MaterialTheme.typography.headlineMedium,
-            color = when {
-                isFailed -> MaterialTheme.colorScheme.error
-                else     -> MaterialTheme.colorScheme.onBackground
-            }
+            color = if (isFailed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onBackground
         )
 
         Spacer(Modifier.height(12.dp))
 
+        // Detail message
         Text(
             text      = if (isFailed)
                 (stitchState as StitchState.Failed).reason
@@ -203,18 +212,16 @@ fun StitchingProgressScreen(
                 color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.4f),
                 textAlign = TextAlign.Center
             )
-
             Spacer(Modifier.height(28.dp))
-
             LinearProgressIndicator(
                 progress     = { animatedProgress },
-                modifier     = Modifier.fillMaxWidth().height(8.dp),
+                modifier     = Modifier
+                    .fillMaxWidth()
+                    .height(8.dp),
                 color        = MaterialTheme.colorScheme.primary,
                 trackColor   = MaterialTheme.colorScheme.surface
             )
-
             Spacer(Modifier.height(28.dp))
-
             OutlinedButton(
                 onClick = { workManager.cancelUniqueWork("stitch_$sessionId") },
                 shape   = MaterialTheme.shapes.medium
@@ -226,7 +233,7 @@ fun StitchingProgressScreen(
         if (isFailed) {
             Spacer(Modifier.height(20.dp))
             Text(
-                text  = "Returning to capture screen in 4 s…",
+                text  = "Returning to capture screen in 5 s…",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.4f)
             )
