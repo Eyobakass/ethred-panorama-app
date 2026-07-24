@@ -2,6 +2,8 @@ package com.ethred.panorama.stitching
 
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.Matrix
+import android.media.ExifInterface
 import android.util.Log
 import java.io.File
 import java.io.FileOutputStream
@@ -41,7 +43,7 @@ object KotlinFallbackStitcher {
                 return StitchResult(false, null, 0, "Failed to decode any frame bitmaps")
             }
 
-            Log.i(TAG, "Loaded ${bitmaps.size}/${framePaths.size} bitmaps")
+            Log.i(TAG, "Loaded ${bitmaps.size}/${framePaths.size} bitmaps (rotated upright)")
 
             // Create output canvas
             val output = Bitmap.createBitmap(OUT_W, OUT_H, Bitmap.Config.ARGB_8888)
@@ -84,12 +86,47 @@ object KotlinFallbackStitcher {
         }
         return paths.mapNotNull { path ->
             try {
-                BitmapFactory.decodeFile(path, opts)
+                val rawBmp = BitmapFactory.decodeFile(path, opts) ?: return@mapNotNull null
+                val rotationDegrees = getExifRotation(path, rawBmp)
+                if (rotationDegrees != 0) {
+                    val matrix = Matrix().apply { postRotate(rotationDegrees.toFloat()) }
+                    val rotatedBmp = Bitmap.createBitmap(
+                        rawBmp, 0, 0, rawBmp.width, rawBmp.height, matrix, true
+                    )
+                    if (rotatedBmp != rawBmp) {
+                        rawBmp.recycle()
+                    }
+                    rotatedBmp
+                } else {
+                    rawBmp
+                }
             } catch (e: Exception) {
                 Log.w(TAG, "Could not decode frame: $path — ${e.message}")
                 null
             }
         }
+    }
+
+    private fun getExifRotation(path: String, bmp: Bitmap): Int {
+        try {
+            val exif = ExifInterface(path)
+            val orientation = exif.getAttributeInt(
+                ExifInterface.TAG_ORIENTATION,
+                ExifInterface.ORIENTATION_UNDEFINED
+            )
+            when (orientation) {
+                ExifInterface.ORIENTATION_ROTATE_90 -> return 90
+                ExifInterface.ORIENTATION_ROTATE_180 -> return 180
+                ExifInterface.ORIENTATION_ROTATE_270 -> return 270
+            }
+        } catch (_: Exception) {}
+
+        // Fallback: If EXIF was missing/undefined but bitmap is wider than tall (landscape),
+        // portrait phone capture was recorded in sensor orientation, so rotate 90 degrees.
+        if (bmp.width > bmp.height) {
+            return 90
+        }
+        return 0
     }
 
     /**

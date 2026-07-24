@@ -183,7 +183,7 @@ fun TourEditorScreen(
                                     }
                                 }
                                 if (webView.url == null) {
-                                    webView.loadUrl("file:///android_asset/pannellum/index.html")
+                                    webView.loadUrl("https://appassets.androidplatform.net/assets/pannellum/index.html")
                                 } else {
                                     webView.evaluateJavascript("loadPanorama($assetUrl);", null)
                                 }

@@ -248,6 +248,7 @@ fun CaptureScreen(
                                     imageCapture = ImageCapture.Builder()
                                         .setCaptureMode(ImageCapture.CAPTURE_MODE_MAXIMIZE_QUALITY)
                                         .setTargetAspectRatio(AspectRatio.RATIO_4_3)
+                                        .setTargetRotation(previewView.display?.rotation ?: android.view.Surface.ROTATION_0)
                                         .setJpegQuality(100)
                                         .setFlashMode(ImageCapture.FLASH_MODE_OFF)
                                         .build()
