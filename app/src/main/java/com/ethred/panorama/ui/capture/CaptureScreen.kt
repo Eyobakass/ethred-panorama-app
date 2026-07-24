@@ -1,7 +1,7 @@
 package com.ethred.panorama.ui.capture
 
 import android.content.pm.PackageManager
-import android.util.Size
+import android.hardware.camera2.CaptureRequest
 import android.view.ViewGroup
 import androidx.camera.camera2.interop.Camera2CameraControl
 import androidx.camera.camera2.interop.CaptureRequestOptions
@@ -35,7 +35,6 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import com.ethred.panorama.sensors.TargetDot
-import android.hardware.camera2.CaptureRequest
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Locale
@@ -49,22 +48,27 @@ fun CaptureScreen(
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
 
+    // ── All state variables declared first ───────────────────────────────────
+    val orientation by viewModel.orientationFlow.collectAsState()
+    val dots by viewModel.dotsFlow.collectAsState()
+
+    var imageCapture: ImageCapture? by remember { mutableStateOf(null) }
+    var cameraControl: CameraControl? by remember { mutableStateOf(null) }
+    var isShutterFlashing by remember { mutableStateOf(false) }
+    var firstFrameCaptured by remember { mutableStateOf(false) }
+    val gyroMissingDialog = remember { !viewModel.sensorProcessor.isGyroscopeAvailable() }
+
     var hasCameraPermission by remember {
         mutableStateOf(
-            ContextCompat.checkSelfPermission(context, android.Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
+            ContextCompat.checkSelfPermission(
+                context, android.Manifest.permission.CAMERA
+            ) == PackageManager.PERMISSION_GRANTED
         )
     }
-
     val permissionLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
         contract = androidx.activity.result.contract.ActivityResultContracts.RequestPermission(),
         onResult = { granted -> hasCameraPermission = granted }
     )
-
-    LaunchedEffect(Unit) {
-        if (!hasCameraPermission) {
-            permissionLauncher.launch(android.Manifest.permission.CAMERA)
-        }
-    }
 
     // Animated pulse scale for IN_ALIGNMENT dots
     val pulseAnim = rememberInfiniteTransition(label = "dot_pulse")
@@ -78,8 +82,15 @@ fun CaptureScreen(
         label = "pulse_scale"
     )
 
-    LaunchedEffect(sessionId) {
+    // ── Effects (after all state vars) ────────────────────────────────────────
+    LaunchedEffect(Unit) {
+        if (!hasCameraPermission) {
+            permissionLauncher.launch(android.Manifest.permission.CAMERA)
+        }
         viewModel.initializeSession(sessionId)
+    }
+
+    LaunchedEffect(sessionId) {
         viewModel.uiEvents.collect { event ->
             when (event) {
                 is CaptureUiEvent.TriggerShutterFlash -> {
@@ -99,30 +110,28 @@ fun CaptureScreen(
             // Lock AWB + AE after first frame, as per FR-CAP-04
             if (!firstFrameCaptured) {
                 firstFrameCaptured = true
-                cameraControl?.let { ctrl ->
+                cameraControl?.let { ctrl: CameraControl ->
                     try {
                         val camera2Control = Camera2CameraControl.from(ctrl)
                         camera2Control.setCaptureRequestOptions(
                             CaptureRequestOptions.Builder()
-                                .setCaptureRequestOption(
-                                    CaptureRequest.CONTROL_AWB_LOCK, true
-                                )
-                                .setCaptureRequestOption(
-                                    CaptureRequest.CONTROL_AE_LOCK, true
-                                )
+                                .setCaptureRequestOption(CaptureRequest.CONTROL_AWB_LOCK, true)
+                                .setCaptureRequestOption(CaptureRequest.CONTROL_AE_LOCK, true)
                                 .build()
                         )
                     } catch (e: Exception) { /* camera2 not available on this device */ }
                 }
             }
 
-            val outputDir = File(context.filesDir, "raw_frames/$sessionId").apply { if (!exists()) mkdirs() }
-            val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmssSSS", Locale.US).format(System.currentTimeMillis())
+            val outputDir = File(context.filesDir, "raw_frames/$sessionId").apply {
+                if (!exists()) mkdirs()
+            }
+            val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmssSSS", Locale.US)
+                .format(System.currentTimeMillis())
             val photoFile = File(outputDir, "FRAME_$timeStamp.jpg")
 
-            val outputOptions = ImageCapture.OutputFileOptions.Builder(photoFile).build()
             capture.takePicture(
-                outputOptions,
+                ImageCapture.OutputFileOptions.Builder(photoFile).build(),
                 ContextCompat.getMainExecutor(context),
                 object : ImageCapture.OnImageSavedCallback {
                     override fun onImageSaved(output: ImageCapture.OutputFileResults) {
@@ -134,6 +143,7 @@ fun CaptureScreen(
         }
     }
 
+    // ── UI ───────────────────────────────────────────────────────────────────
     if (gyroMissingDialog) {
         AlertDialog(
             onDismissRequest = {},
@@ -147,86 +157,110 @@ fun CaptureScreen(
 
     Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
 
-        // CameraX Viewfinder
-        AndroidView(
-            factory = { ctx ->
-                val previewView = PreviewView(ctx).apply {
-                    layoutParams = ViewGroup.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.MATCH_PARENT
-                    )
-                    scaleType = PreviewView.ScaleType.FILL_CENTER
-                }
-                val cameraProviderFuture = ProcessCameraProvider.getInstance(ctx)
-                cameraProviderFuture.addListener({
-                    val cameraProvider = cameraProviderFuture.get()
-
-                    val preview = Preview.Builder()
-                        .setTargetAspectRatio(AspectRatio.RATIO_4_3)
-                        .build().also {
-                            it.setSurfaceProvider(previewView.surfaceProvider)
-                        }
-
-                    // FR-CAP-04: JPEG quality 95, flash off, minimise latency, 4:3 aspect ratio
-                    imageCapture = ImageCapture.Builder()
-                        .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
-                        .setTargetAspectRatio(AspectRatio.RATIO_4_3)
-                        .setJpegQuality(95)
-                        .setFlashMode(ImageCapture.FLASH_MODE_OFF)
-                        .build()
-
-                    val cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
-
-                    try {
-                        cameraProvider.unbindAll()
-                        val camera = cameraProvider.bindToLifecycle(
-                            lifecycleOwner, cameraSelector, preview, imageCapture
+        // ── CameraX Viewfinder ────────────────────────────────────────────────
+        if (hasCameraPermission) {
+            AndroidView(
+                factory = { ctx ->
+                    val previewView = PreviewView(ctx).apply {
+                        layoutParams = ViewGroup.LayoutParams(
+                            ViewGroup.LayoutParams.MATCH_PARENT,
+                            ViewGroup.LayoutParams.MATCH_PARENT
                         )
-                        cameraControl = camera.cameraControl
-
-                        // FR-CAP-04: Lock zoom at 1.0× (no optical zoom)
-                        camera.cameraControl.setLinearZoom(0f)
-
-                    } catch (e: Exception) {
-                        e.printStackTrace()
+                        scaleType = PreviewView.ScaleType.FILL_CENTER
                     }
-                }, ContextCompat.getMainExecutor(ctx))
-                previewView
-            },
-            modifier = Modifier.fillMaxSize()
-        )
+                    val cameraProviderFuture = ProcessCameraProvider.getInstance(ctx)
+                    cameraProviderFuture.addListener({
+                        val cameraProvider = cameraProviderFuture.get()
 
-        // AR Spherical Reticle Canvas with tap-to-capture (FR-CAP-05)
+                        val preview = Preview.Builder()
+                            .setTargetAspectRatio(AspectRatio.RATIO_4_3)
+                            .build().also {
+                                it.setSurfaceProvider(previewView.surfaceProvider)
+                            }
+
+                        // FR-CAP-04: JPEG quality 95, flash off, minimise latency
+                        imageCapture = ImageCapture.Builder()
+                            .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
+                            .setTargetAspectRatio(AspectRatio.RATIO_4_3)
+                            .setJpegQuality(95)
+                            .setFlashMode(ImageCapture.FLASH_MODE_OFF)
+                            .build()
+
+                        try {
+                            cameraProvider.unbindAll()
+                            val camera = cameraProvider.bindToLifecycle(
+                                lifecycleOwner,
+                                CameraSelector.DEFAULT_BACK_CAMERA,
+                                preview,
+                                imageCapture
+                            )
+                            cameraControl = camera.cameraControl
+                            // FR-CAP-04: Lock zoom at 1.0×
+                            camera.cameraControl.setLinearZoom(0f)
+                        } catch (e: Exception) {
+                            e.printStackTrace()
+                        }
+                    }, ContextCompat.getMainExecutor(ctx))
+                    previewView
+                },
+                modifier = Modifier.fillMaxSize()
+            )
+        } else {
+            // Permission denied screen
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        "Camera permission required",
+                        color = Color.White,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Button(onClick = {
+                        permissionLauncher.launch(android.Manifest.permission.CAMERA)
+                    }) {
+                        Text("Grant Permission")
+                    }
+                }
+            }
+        }
+
+        // ── AR Spherical Reticle Canvas with tap-to-capture (FR-CAP-05) ──────
         Canvas(
             modifier = Modifier
                 .fillMaxSize()
                 .pointerInput(dots) {
                     detectTapGestures { tapOffset ->
-                        // Manual tap on dot = force capture (FR-CAP-05)
                         val canvasW = size.width.toFloat()
                         val canvasH = size.height.toFloat()
                         val centerX = canvasW / 2f
                         val centerY = canvasH / 2f
                         val radiusScale = canvasW * 0.4f
 
-                        val nearDot = dots.firstOrNull { dot ->
+                        val nearDot = dots.firstOrNull { dot: TargetDot ->
                             val yawDiff = getAngleDiff(orientation.yawDeg, dot.targetYawDeg)
                             val pitchDiff = dot.targetPitchDeg - orientation.pitchDeg
                             val dotX = centerX + (yawDiff / 45f) * radiusScale
                             val dotY = centerY - (pitchDiff / 45f) * radiusScale
                             val dx = tapOffset.x - dotX
                             val dy = tapOffset.y - dotY
-                            Math.sqrt((dx * dx + dy * dy).toDouble()) < 60.0 &&
+                            kotlin.math.sqrt((dx * dx + dy * dy).toDouble()) < 60.0 &&
                                 dot.state == TargetDot.State.UNCAPTURED
                         }
                         if (nearDot != null) {
                             viewModel.forceCaptureDot(nearDot) { onFrameSaved ->
                                 val capture = imageCapture ?: return@forceCaptureDot
-                                val outputDir = File(context.filesDir, "raw_frames/$sessionId").apply { if (!exists()) mkdirs() }
-                                val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmssSSS", Locale.US).format(System.currentTimeMillis())
+                                val outputDir = File(context.filesDir, "raw_frames/$sessionId")
+                                    .apply { if (!exists()) mkdirs() }
+                                val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmssSSS", Locale.US)
+                                    .format(System.currentTimeMillis())
                                 val photoFile = File(outputDir, "FRAME_MANUAL_$timeStamp.jpg")
-                                val opts = ImageCapture.OutputFileOptions.Builder(photoFile).build()
-                                capture.takePicture(opts, ContextCompat.getMainExecutor(context),
+                                capture.takePicture(
+                                    ImageCapture.OutputFileOptions.Builder(photoFile).build(),
+                                    ContextCompat.getMainExecutor(context),
                                     object : ImageCapture.OnImageSavedCallback {
                                         override fun onImageSaved(output: ImageCapture.OutputFileResults) {
                                             onFrameSaved(photoFile.absolutePath)
@@ -243,7 +277,7 @@ fun CaptureScreen(
             val centerY = size.height / 2f
             val radiusScale = size.width * 0.4f
 
-            // Center alignment reticle
+            // Center crosshair reticle
             drawCircle(
                 color = Color.White.copy(alpha = 0.7f),
                 radius = 24.dp.toPx(),
@@ -256,7 +290,7 @@ fun CaptureScreen(
                 center = Offset(centerX, centerY)
             )
 
-            dots.forEach { dot ->
+            dots.forEach { dot: TargetDot ->
                 val yawDiff = getAngleDiff(orientation.yawDeg, dot.targetYawDeg)
                 val pitchDiff = dot.targetPitchDeg - orientation.pitchDeg
                 val dotX = centerX + (yawDiff / 45f) * radiusScale
@@ -299,12 +333,12 @@ fun CaptureScreen(
             }
         }
 
-        // Shutter flash overlay
+        // ── Shutter flash overlay ─────────────────────────────────────────────
         AnimatedVisibility(visible = isShutterFlashing, enter = fadeIn(), exit = fadeOut()) {
             Box(modifier = Modifier.fillMaxSize().background(Color.White.copy(alpha = 0.8f)))
         }
 
-        // Top progress overlay
+        // ── Top progress overlay ──────────────────────────────────────────────
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -314,7 +348,7 @@ fun CaptureScreen(
         ) {
             val capturedCount = viewModel.getCapturedCount()
             val totalCount = viewModel.getTotalCount()
-            val progress = capturedCount.toFloat() / totalCount.toFloat()
+            val progress = if (totalCount > 0) capturedCount.toFloat() / totalCount.toFloat() else 0f
 
             Surface(
                 shape = RoundedCornerShape(20.dp),
@@ -333,7 +367,9 @@ fun CaptureScreen(
                     Spacer(modifier = Modifier.height(6.dp))
                     LinearProgressIndicator(
                         progress = { progress },
-                        modifier = Modifier.fillMaxWidth().height(4.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(4.dp),
                         color = Color(0xFF3B82F6),
                         trackColor = Color.White.copy(alpha = 0.3f)
                     )
@@ -341,7 +377,7 @@ fun CaptureScreen(
             }
         }
 
-        // Bottom finish button
+        // ── Bottom finish button ──────────────────────────────────────────────
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -367,7 +403,7 @@ fun CaptureScreen(
                 Icon(Icons.Default.Check, contentDescription = "Finish capture")
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = if (available) "Finish Capture & Stitch" else "Capture at least 16 frames",
+                    text = if (available) "Finish Capture & Stitch" else "✓ Capture at least 16 frames",
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Bold
                 )
