@@ -133,8 +133,8 @@ Java_com_ethred_panorama_stitching_NativeStitcher_nativeStitchFrames(
 
     LOGI("Stitching pipeline: %d frames → %s (nadirOption=%d)", frameCount, outPathStr.c_str(), (int)nadirCapOption);
 
-    if (frameCount < 16) {
-        return createStitchResult(env, false, "", 0, "Insufficient frames (minimum 16 required)");
+    if (frameCount < 8) {
+        return createStitchResult(env, false, "", 0, "Insufficient frames (minimum 8 required)");
     }
 
     // Extract frame paths

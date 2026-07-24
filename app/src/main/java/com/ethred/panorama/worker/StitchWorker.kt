@@ -37,11 +37,13 @@ class StitchWorker @AssistedInject constructor(
         val session = sessionRepository.getSession(sessionId) ?: return@withContext Result.failure()
         val frames  = sessionRepository.getFrames(sessionId)
 
-        val minFrames = (frames.size * 0.85).toInt().coerceAtLeast(10)
-        if (frames.size < minFrames) {
+        // Require at least 10 captured frames. The 85% threshold only applies
+        // when the user has fully finished capturing (it's a completion gate, not a floor).
+        val minRequired = maxOf(10, (frames.size * 0.70).toInt())
+        if (frames.size < 10) {
             sessionRepository.updateSessionStatus(sessionId, CaptureSessionEntity.STATUS_FAILED)
             return@withContext Result.failure(
-                workDataOf("error" to "Insufficient frames (${frames.size} captured, need $minFrames)")
+                workDataOf("error" to "Too few frames captured (${frames.size}). Capture at least 10 frames for stitching.")
             )
         }
 

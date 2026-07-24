@@ -21,6 +21,9 @@ interface CaptureSessionDao {
     @Query("SELECT * FROM capture_sessions WHERE propertyId = :propertyId ORDER BY createdAt DESC")
     fun getSessionsForProperty(propertyId: String): Flow<List<CaptureSessionEntity>>
 
+    @Query("SELECT * FROM capture_sessions WHERE status = 'DONE' ORDER BY createdAt DESC")
+    fun getAllCompletedSessions(): Flow<List<CaptureSessionEntity>>
+
     @Query("DELETE FROM capture_sessions WHERE id = :sessionId")
     suspend fun deleteSession(sessionId: String)
 }

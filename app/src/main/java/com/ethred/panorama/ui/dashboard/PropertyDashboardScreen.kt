@@ -9,6 +9,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AddAPhoto
+import androidx.compose.material.icons.filled.CollectionsBookmark
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Logout
@@ -42,6 +43,7 @@ sealed class DashboardUiState {
 fun PropertyDashboardScreen(
     authRepository: AuthRepository,
     onSelectProperty: (propertyId: String, propertyTitle: String) -> Unit,
+    onOpenLibrary: () -> Unit,
     onLogout: () -> Unit
 ) {
     var uiState by remember { mutableStateOf<DashboardUiState>(DashboardUiState.Loading) }
@@ -73,6 +75,9 @@ fun PropertyDashboardScreen(
             TopAppBar(
                 title = { Text("My Properties", style = MaterialTheme.typography.titleLarge) },
                 actions = {
+                    IconButton(onClick = onOpenLibrary) {
+                        Icon(Icons.Default.CollectionsBookmark, contentDescription = "Panorama Library")
+                    }
                     IconButton(onClick = { isRefreshing = true; loadProperties() }) {
                         Icon(Icons.Default.Refresh, contentDescription = "Refresh")
                     }

@@ -18,6 +18,7 @@ import com.ethred.panorama.ui.auth.LoginScreen
 import com.ethred.panorama.ui.capture.CaptureScreen
 import com.ethred.panorama.ui.capture.CaptureViewModel
 import com.ethred.panorama.ui.dashboard.PropertyDashboardScreen
+import com.ethred.panorama.ui.library.PanoramaLibraryScreen
 import com.ethred.panorama.ui.onboarding.OnboardingScreen
 import com.ethred.panorama.ui.preview.PreviewScreen
 import com.ethred.panorama.ui.setup.RoomSetupScreen
@@ -55,6 +56,8 @@ sealed class Screen(val route: String) {
     object UploadStatus : Screen("upload_status/{propertyId}") {
         fun createRoute(propertyId: String) = "upload_status/$propertyId"
     }
+
+    object Library : Screen("library")
 }
 
 @Composable
@@ -104,6 +107,9 @@ fun AppNavGraph(
                     navController.navigate(
                         Screen.RoomSetup.createRoute(propId, propTitle, 28)
                     )
+                },
+                onOpenLibrary = {
+                    navController.navigate(Screen.Library.route)
                 },
                 onLogout = {
                     navController.navigate(Screen.Login.route) {
@@ -214,10 +220,19 @@ fun AppNavGraph(
                 uploadQueueRepository = uploadQueueRepository,
                 onDashboardReturn     = {
                     navController.navigate(Screen.Dashboard.route) {
-                        // inclusive=false: preserves dashboard state and scroll position
                         popUpTo(Screen.Dashboard.route) { inclusive = false }
                     }
                 }
+            )
+        }
+
+        composable(Screen.Library.route) {
+            PanoramaLibraryScreen(
+                sessionRepository = sessionRepository,
+                onSelectSession   = { sessionId ->
+                    navController.navigate(Screen.Preview.createRoute(sessionId))
+                },
+                onNavigateBack    = { navController.popBackStack() }
             )
         }
     }

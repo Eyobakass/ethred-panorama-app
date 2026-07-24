@@ -33,6 +33,10 @@ class CaptureSessionRepository @Inject constructor(
         return sessionDao.getSessionsForProperty(propertyId)
     }
 
+    fun getAllCompletedSessions(): Flow<List<CaptureSessionEntity>> {
+        return sessionDao.getAllCompletedSessions()
+    }
+
     suspend fun saveFrame(sessionId: String, filePath: String, yaw: Float, pitch: Float, roll: Float) {
         val frame = CapturedFrameEntity(
             sessionId = sessionId,
