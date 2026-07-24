@@ -14,7 +14,6 @@ import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
-import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -45,13 +44,10 @@ fun PropertyDashboardScreen(
     onSelectProperty: (propertyId: String, propertyTitle: String) -> Unit,
     onLogout: () -> Unit
 ) {
-    // In production this would be a hiltViewModel() with a real StateFlow.
-    // For now we use the repository directly and show the demo properties.
     var uiState by remember { mutableStateOf<DashboardUiState>(DashboardUiState.Loading) }
     var isRefreshing by remember { mutableStateOf(false) }
 
     fun loadProperties() {
-        // TODO: replace with real authRepository.getProperties() call
         val role = authRepository.getUserRole() ?: "AGENT"
         val sampleProperties = listOf(
             PropertyItem("prop_101", "Luxury Villa #307", "Bole, Addis Ababa", 2),
@@ -77,6 +73,9 @@ fun PropertyDashboardScreen(
             TopAppBar(
                 title = { Text("My Properties", style = MaterialTheme.typography.titleLarge) },
                 actions = {
+                    IconButton(onClick = { isRefreshing = true; loadProperties() }) {
+                        Icon(Icons.Default.Refresh, contentDescription = "Refresh")
+                    }
                     IconButton(onClick = {
                         authRepository.logout()
                         onLogout()
@@ -90,10 +89,8 @@ fun PropertyDashboardScreen(
             )
         }
     ) { paddingValues ->
-        PullToRefreshBox(
-            isRefreshing = isRefreshing,
-            onRefresh    = { isRefreshing = true; loadProperties() },
-            modifier     = Modifier
+        Box(
+            modifier = Modifier
                 .fillMaxSize()
                 .background(MaterialTheme.colorScheme.background)
                 .padding(paddingValues)
@@ -151,7 +148,6 @@ fun PropertyDashboardScreen(
                             .fillMaxSize()
                             .padding(horizontal = 16.dp)
                     ) {
-                        // BUYER restriction banner
                         if (!canCapture) {
                             Card(
                                 modifier = Modifier
@@ -271,7 +267,6 @@ private fun PropertyCard(
     }
 }
 
-/** Animated shimmer placeholder while loading */
 @Composable
 private fun ShimmerPropertyCard() {
     val shimmer = rememberInfiniteTransition(label = "shimmer")

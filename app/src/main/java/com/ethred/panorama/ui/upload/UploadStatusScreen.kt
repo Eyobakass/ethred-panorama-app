@@ -8,7 +8,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.AutoMirrored.Filled.ArrowBack
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.OpenInBrowser
 import androidx.compose.material.icons.filled.Refresh
@@ -81,7 +81,7 @@ fun UploadStatusScreen(
                 title = { Text("Upload Status", style = MaterialTheme.typography.titleLarge) },
                 navigationIcon = {
                     IconButton(onClick = onDashboardReturn) {
-                        Icon(ArrowBack, contentDescription = "Back to Dashboard")
+                        Icon(Icons.Default.ArrowBack, contentDescription = "Back to Dashboard")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(

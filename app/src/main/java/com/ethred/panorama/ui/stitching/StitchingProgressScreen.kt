@@ -16,7 +16,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.work.*
 import com.ethred.panorama.data.local.db.CaptureSessionEntity
 import com.ethred.panorama.data.repository.CaptureSessionRepository
