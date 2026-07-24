@@ -1,8 +1,15 @@
 package com.ethred.panorama.ui.preview
 
 import android.annotation.SuppressLint
+import android.content.ContentValues
+import android.content.Context
+import android.media.MediaScannerConnection
+import android.os.Build
+import android.os.Environment
+import android.provider.MediaStore
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -10,6 +17,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CloudUpload
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Star
@@ -19,6 +27,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -29,6 +38,7 @@ import com.ethred.panorama.data.repository.UploadQueueRepository
 import com.ethred.panorama.ui.theme.WarningAmber
 import kotlinx.coroutines.launch
 import org.json.JSONObject
+import java.io.File
 
 @SuppressLint("SetJavaScriptEnabled")
 @OptIn(ExperimentalMaterial3Api::class)
@@ -42,6 +52,7 @@ fun PreviewScreen(
     onLinkRooms: (propertyId: String) -> Unit,
     onUploadNow: (propertyId: String) -> Unit
 ) {
+    val context        = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
 
     var session             by remember { mutableStateOf<CaptureSessionEntity?>(null) }
@@ -128,10 +139,25 @@ fun PreviewScreen(
             TopAppBar(
                 title = { Text(currentSession.roomName, style = MaterialTheme.typography.titleLarge) },
                 actions = {
+                    // Download JPG Icon Button
+                    IconButton(onClick = {
+                        val path = currentSession.outputPath
+                        if (path != null) {
+                            val saved = savePanoramaToGallery(context, path, currentSession.roomName)
+                            if (saved) {
+                                Toast.makeText(context, "Saved 360° JPG to Gallery (Pictures/Ethred360)!", Toast.LENGTH_LONG).show()
+                            } else {
+                                Toast.makeText(context, "Failed to save image.", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    }) {
+                        Icon(Icons.Default.Download, contentDescription = "Download JPG to Gallery")
+                    }
+
                     // Quality star rating
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.padding(end = 12.dp)
+                        modifier = Modifier.padding(end = 12.dp, start = 4.dp)
                     ) {
                         val score = currentSession.qualityScore.coerceIn(0, 5)
                         repeat(5) { index ->
@@ -162,7 +188,6 @@ fun PreviewScreen(
                     .weight(1f)
             ) {
                 val safeFileUrl = remember(currentSession.outputPath) {
-                    // Safely quote the path for JS injection to prevent injection bugs
                     try { JSONObject.quote("file://${currentSession.outputPath}") }
                     catch (_: Exception) { "\"file://${currentSession.outputPath}\"" }
                 }
@@ -170,13 +195,12 @@ fun PreviewScreen(
                 AndroidView(
                     factory = { ctx ->
                         WebView(ctx).apply {
-                            settings.javaScriptEnabled = true
-                            settings.allowFileAccess   = true
+                            settings.javaScriptEnabled  = true
+                            settings.allowFileAccess    = true
                             settings.allowContentAccess = true
                         }
                     },
                     update = { webView ->
-                        // update{} runs every recomposition when session changes
                         webView.webViewClient = object : WebViewClient() {
                             override fun onPageFinished(view: WebView?, url: String?) {
                                 view?.evaluateJavascript("loadPanorama($safeFileUrl);", null)
@@ -249,13 +273,23 @@ fun PreviewScreen(
                         }
 
                         OutlinedButton(
-                            onClick  = onAddAnotherRoom,
-                            modifier = Modifier.weight(1f),
+                            onClick  = {
+                                val path = currentSession.outputPath
+                                if (path != null) {
+                                    val saved = savePanoramaToGallery(context, path, currentSession.roomName)
+                                    if (saved) {
+                                        Toast.makeText(context, "Saved 360° JPG to Gallery (Pictures/Ethred360)!", Toast.LENGTH_LONG).show()
+                                    } else {
+                                        Toast.makeText(context, "Failed to save image.", Toast.LENGTH_SHORT).show()
+                                    }
+                                }
+                            },
+                            modifier = Modifier.weight(1.1f),
                             shape    = MaterialTheme.shapes.small
                         ) {
-                            Icon(Icons.Default.Add, null, modifier = Modifier.size(14.dp))
+                            Icon(Icons.Default.Download, null, modifier = Modifier.size(14.dp))
                             Spacer(Modifier.width(4.dp))
-                            Text("+ Room", style = MaterialTheme.typography.labelMedium)
+                            Text("Save JPG", style = MaterialTheme.typography.labelMedium)
                         }
 
                         OutlinedButton(
@@ -293,5 +327,42 @@ fun PreviewScreen(
                 }
             }
         }
+    }
+}
+
+/** Helper function to export equirectangular 360 JPG to device's public Gallery/Pictures folder */
+private fun savePanoramaToGallery(context: Context, inputFilePath: String, roomName: String): Boolean {
+    return try {
+        val file = File(inputFilePath)
+        if (!file.exists()) return false
+
+        val cleanRoom = roomName.replace("[^a-zA-Z0-9]".toRegex(), "_")
+        val fileName  = "360_${cleanRoom}_${System.currentTimeMillis()}.jpg"
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            val resolver = context.contentResolver
+            val contentValues = ContentValues().apply {
+                put(MediaStore.MediaColumns.DISPLAY_NAME, fileName)
+                put(MediaStore.MediaColumns.MIME_TYPE, "image/jpeg")
+                put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_PICTURES + "/Ethred360")
+            }
+            val uri = resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, contentValues)
+                ?: return false
+            resolver.openOutputStream(uri)?.use { out ->
+                file.inputStream().use { input -> input.copyTo(out) }
+            }
+        } else {
+            val targetDir = File(
+                Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES),
+                "Ethred360"
+            ).apply { mkdirs() }
+            val targetFile = File(targetDir, fileName)
+            file.copyTo(targetFile, overwrite = true)
+            MediaScannerConnection.scanFile(context, arrayOf(targetFile.absolutePath), arrayOf("image/jpeg"), null)
+        }
+        true
+    } catch (e: Exception) {
+        e.printStackTrace()
+        false
     }
 }
