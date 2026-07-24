@@ -14,26 +14,56 @@ class NativeStitcher {
     companion object {
         private const val TAG = "NativeStitcher"
 
+        /**
+         * True when libstitcher.so loaded successfully.
+         * If false, calling nativeStitchFrames() would throw UnsatisfiedLinkError.
+         */
+        var isLibraryLoaded: Boolean = false
+            private set
+
         init {
-            try {
+            isLibraryLoaded = try {
                 System.loadLibrary("stitcher")
                 Log.i(TAG, "Native library libstitcher.so loaded successfully")
+                true
             } catch (e: UnsatisfiedLinkError) {
-                Log.e(TAG, "Failed to load native library libstitcher.so: ${e.message}")
+                Log.e(TAG, "Failed to load libstitcher.so: ${e.message}")
+                false
             }
         }
     }
 
     /**
-     * Executes native C++ OpenCV stitching pipeline on captured frame paths.
-     * @param framePaths Array of absolute file paths to raw JPEGs
-     * @param yaws Array of yaw angles for each frame
-     * @param pitches Array of pitch angles for each frame
-     * @param rolls Array of roll angles for each frame
-     * @param outputPath Path where finished equirectangular JPEG will be saved
+     * Executes native C++ stitching pipeline.
+     * Returns a failure StitchResult immediately if the native library isn't loaded.
+     *
+     * @param framePaths    Array of absolute file paths to raw JPEGs
+     * @param yaws          Array of yaw angles for each frame
+     * @param pitches       Array of pitch angles for each frame
+     * @param rolls         Array of roll angles for each frame
+     * @param outputPath    Path where the equirectangular JPEG will be saved
      * @param nadirCapOption 0: Auto Inpaint, 1: Vignette Feather, 2: Agency Logo Cap
      */
-    external fun nativeStitchFrames(
+    fun stitch(
+        framePaths: Array<String>,
+        yaws: FloatArray,
+        pitches: FloatArray,
+        rolls: FloatArray,
+        outputPath: String,
+        nadirCapOption: Int
+    ): StitchResult {
+        if (!isLibraryLoaded) {
+            return StitchResult(
+                isSuccess    = false,
+                outputPath   = null,
+                qualityScore = 0,
+                errorMessage = "Native stitching library failed to load. The APK may not include libstitcher.so for this CPU architecture."
+            )
+        }
+        return nativeStitchFrames(framePaths, yaws, pitches, rolls, outputPath, nadirCapOption)
+    }
+
+    private external fun nativeStitchFrames(
         framePaths: Array<String>,
         yaws: FloatArray,
         pitches: FloatArray,

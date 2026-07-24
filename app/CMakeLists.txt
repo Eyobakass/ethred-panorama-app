@@ -37,6 +37,8 @@ target_include_directories(
 )
 
 if(OpenCV_FOUND)
+    # CRITICAL: define HAVE_OPENCV so #ifdef HAVE_OPENCV in native_stitcher.cpp activates
+    target_compile_definitions(stitcher PRIVATE HAVE_OPENCV)
     target_link_libraries(
         stitcher
         ${OpenCV_LIBS}
